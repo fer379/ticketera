@@ -19,7 +19,8 @@
         <hr>
         <div class="small text-muted">
           Creado: {{ ticket.created_at|argentina_datetime }} (Argentina, GMT-3) &bull;
-          Estado actual: <strong>{{ ticket.status }}</strong> &bull;
+          Estado actual:
+          <span class="badge ticket-status" data-status="{{ ticket.status }}">{{ ticket.status }}</span> &bull;
           Prioridad: <strong>{{ ticket.priority }}</strong> &bull;
           Responsable: <strong>{{ ticket.assigned_to or 'Sin asignar' }}</strong>
         </div>

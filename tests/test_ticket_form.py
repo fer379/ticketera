@@ -294,6 +294,7 @@ class TicketFormTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 body = response.get_data(as_text=True)
                 self.assertIn(title, body)
+                self.assertIn('data-status="Abierto"', body)
                 if role == "Usuario":
                     self.assertIn("Ver y comentar", body)
 

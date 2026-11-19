@@ -1,51 +1,76 @@
 :root {
-  --bs-primary: #087f8c;
-  --bs-primary-rgb: 8, 127, 140;
-  --bs-secondary: #538b73;
-  --bs-secondary-rgb: 83, 139, 115;
-  --bs-success: #397a55;
-  --bs-success-rgb: 57, 122, 85;
-  --bs-dark: #174f55;
-  --bs-dark-rgb: 23, 79, 85;
-  --bs-light: #f2f8f6;
-  --bs-light-rgb: 242, 248, 246;
-  --bs-body-color: #2e4140;
-  --bs-body-bg: #eff6f4;
-  --bs-border-color: #d7e5df;
-  --ticketera-gold: #d6ad45;
-  --ticketera-teal-dark: #066873;
+  --bs-primary: #267fa8;
+  --bs-primary-rgb: 38, 127, 168;
+  --bs-secondary: #567b8d;
+  --bs-secondary-rgb: 86, 123, 141;
+  --bs-success: #3e8262;
+  --bs-success-rgb: 62, 130, 98;
+  --bs-dark: #183f5b;
+  --bs-dark-rgb: 24, 63, 91;
+  --bs-light: #f4faff;
+  --bs-light-rgb: 244, 250, 255;
+  --bs-body-color: #20384b;
+  --bs-body-bg: #f1f8fd;
+  --bs-border-color: #d5e7f2;
+  --bs-box-shadow: 6px 6px 0 rgba(24, 63, 91, 0.1);
+  --bs-box-shadow-sm: 4px 4px 0 rgba(24, 63, 91, 0.08);
+  --ticketera-gold: #e5b83f;
+  --ticketera-celeste: #83c7e8;
+  --ticketera-celeste-dark: #226e96;
+  --ticketera-ink: #183f5b;
 }
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
 }
 
 body.bg-light {
-  background-color: #eff6f4 !important;
-  color: #2e4140;
+  background-color: #f1f8fd !important;
+  background-image: radial-gradient(
+    rgba(55, 142, 187, 0.13) 1.25px,
+    transparent 1.25px
+  );
+  background-size: 30px 30px;
+  color: #20384b;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.55;
 }
 
 .navbar {
-  box-shadow: 0 2px 10px rgba(23, 79, 85, 0.14);
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  background: linear-gradient(110deg, #183f5b, #267fa8) !important;
+  box-shadow: 0 4px 18px rgba(24, 63, 91, 0.16);
   border-bottom: 3px solid var(--ticketera-gold);
+  backdrop-filter: blur(10px);
 }
 
 .navbar-brand {
   letter-spacing: 0.01em;
+  font-weight: 750;
 }
 
 .card {
-  border-color: #dce8e2;
-  border-radius: 0.8rem;
-  transition: box-shadow 180ms ease, transform 180ms ease;
+  border: 1px solid #d5e7f2;
+  border-radius: 1rem;
+  background-color: #fff;
+  transition:
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    border-color 180ms ease;
 }
 
 .card-header.bg-dark {
-  background-color: #174f55 !important;
+  background: linear-gradient(110deg, #183f5b, #267fa8) !important;
+  border-bottom: 2px solid var(--ticketera-gold);
 }
 
 .btn {
+  border-radius: 999px;
+  font-weight: 650;
+  box-shadow: 0 3px 0 rgba(24, 63, 91, 0.13);
   transition:
     color 160ms ease,
     background-color 160ms ease,
@@ -56,67 +81,106 @@ body.bg-light {
 
 .btn-primary,
 .bg-primary {
-  --bs-btn-bg: #087f8c;
-  --bs-btn-border-color: #087f8c;
-  --bs-btn-hover-bg: #066873;
-  --bs-btn-hover-border-color: #066873;
-  --bs-btn-active-bg: #055861;
-  --bs-btn-active-border-color: #055861;
-  background-color: #087f8c !important;
-  border-color: #087f8c !important;
+  --bs-btn-bg: #267fa8;
+  --bs-btn-border-color: #267fa8;
+  --bs-btn-hover-bg: #226e96;
+  --bs-btn-hover-border-color: #226e96;
+  --bs-btn-active-bg: #1d5e80;
+  --bs-btn-active-border-color: #1d5e80;
+  background-color: #267fa8 !important;
+  border-color: #267fa8 !important;
 }
 
 .btn-primary:hover,
 .btn-primary:focus-visible {
-  background-color: var(--ticketera-teal-dark) !important;
-  border-color: var(--ticketera-teal-dark) !important;
+  background-color: var(--ticketera-celeste-dark) !important;
+  border-color: var(--ticketera-celeste-dark) !important;
 }
 
 .text-primary {
-  color: var(--ticketera-teal-dark) !important;
+  color: var(--ticketera-celeste-dark) !important;
 }
 
 .btn-dark {
-  background-color: #174f55;
-  border-color: #174f55;
+  background-color: #183f5b;
+  border-color: #183f5b;
 }
 
 .btn-outline-primary {
-  --bs-btn-color: #066873;
-  --bs-btn-border-color: #69aeb0;
+  --bs-btn-color: #226e96;
+  --bs-btn-border-color: #83c7e8;
   --bs-btn-hover-color: #fff;
-  --bs-btn-hover-bg: #087f8c;
-  --bs-btn-hover-border-color: #087f8c;
-  --bs-btn-active-bg: #066873;
-  --bs-btn-active-border-color: #066873;
+  --bs-btn-hover-bg: #267fa8;
+  --bs-btn-hover-border-color: #267fa8;
+  --bs-btn-active-bg: #226e96;
+  --bs-btn-active-border-color: #226e96;
 }
 
 .btn-success {
-  --bs-btn-bg: #397a55;
-  --bs-btn-border-color: #397a55;
-  --bs-btn-hover-bg: #2e6546;
-  --bs-btn-hover-border-color: #2e6546;
+  --bs-btn-bg: #3e8262;
+  --bs-btn-border-color: #3e8262;
+  --bs-btn-hover-bg: #326d51;
+  --bs-btn-hover-border-color: #326d51;
 }
 
 .form-control,
 .form-select {
+  border-radius: 0.75rem;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .form-control:focus,
 .form-select:focus {
-  border-color: #63aaa8;
-  box-shadow: 0 0 0 0.25rem rgba(8, 127, 140, 0.18);
+  border-color: #63b2d8;
+  box-shadow: 0 0 0 0.25rem rgba(55, 142, 187, 0.2);
 }
 
 .role-badge {
-  background-color: #f3e7bd;
-  color: #514215;
+  background-color: #f7e8b7;
+  color: #574411;
 }
 
 .table-dark {
-  --bs-table-bg: #205b5e;
-  --bs-table-color: #f7fbf9;
+  --bs-table-bg: #234f6e;
+  --bs-table-color: #f8fcff;
+  --bs-table-border-color: #3c6d8b;
+}
+
+.table thead.table-dark {
+  border-bottom: 2px solid var(--ticketera-gold);
+}
+
+.table-hover tbody tr {
+  transition: background-color 150ms ease;
+}
+
+.ticket-status {
+  border: 1px solid transparent;
+  font-weight: 700;
+}
+
+.ticket-status[data-status="Abierto"] {
+  background-color: #dff2fc;
+  border-color: #a7d8f0;
+  color: #205b7a;
+}
+
+.ticket-status[data-status="En Progreso"] {
+  background-color: #fff0c5;
+  border-color: #f1d77d;
+  color: #6b5110;
+}
+
+.ticket-status[data-status="Resuelto"] {
+  background-color: #e1f3e8;
+  border-color: #b6ddc4;
+  color: #2c6346;
+}
+
+.ticket-status[data-status="Cerrado"] {
+  background-color: #e8eef3;
+  border-color: #cbd9e3;
+  color: #455867;
 }
 
 .login-layout {
@@ -133,7 +197,9 @@ body.bg-light {
 }
 
 .login-card-header {
-  background: linear-gradient(135deg, #174f55, #087f8c);
+  background:
+    radial-gradient(circle at 90% 15%, rgba(255, 255, 255, 0.18), transparent 30%),
+    linear-gradient(135deg, #183f5b, #267fa8);
   color: #fff;
   padding: 2rem;
   border-bottom: 4px solid var(--ticketera-gold);
@@ -145,7 +211,8 @@ body.bg-light {
   display: grid;
   place-items: center;
   border-radius: 0.85rem;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   color: #ffe49a;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -162,13 +229,15 @@ body.bg-light {
 
 .login-info {
   border-radius: 0.75rem;
-  background: #eef7f5;
+  background: #eff8fd;
+  border: 1px solid #d4eaf6;
   padding: 0.85rem 1rem;
 }
 
 .login-submit {
   min-height: 3rem;
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 main.container {
@@ -205,11 +274,28 @@ main.container {
 
 @media (hover: hover) {
   .card:hover {
-    box-shadow: 0 0.5rem 1.25rem rgba(23, 79, 85, 0.08);
+    border-color: #b7d9eb;
+    box-shadow: 7px 8px 0 rgba(24, 63, 91, 0.13) !important;
+    transform: translate(-1px, -2px);
   }
 
   .btn:hover {
     transform: translateY(-1px);
+  }
+}
+
+@media (max-width: 575.98px) {
+  .navbar .container {
+    gap: 0.65rem;
+  }
+
+  .navbar .container > div {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .login-card-header {
+    padding: 1.5rem;
   }
 }
 

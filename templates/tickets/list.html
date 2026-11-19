@@ -110,7 +110,7 @@
           <td>{{ t.id }}</td>
           <td><strong>{{ t.title }}</strong></td>
           <td>{{ t.category }}</td>
-          <td><span class="badge bg-secondary">{{ t.status }}</span></td>
+          <td><span class="badge ticket-status" data-status="{{ t.status }}">{{ t.status }}</span></td>
           <td>
             <span class="badge {% if t.priority == 'Crítica' %}bg-danger{% elif t.priority == 'Alta' %}bg-warning text-dark{% else %}bg-primary{% endif %}">
               {{ t.priority }}
