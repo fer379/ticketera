@@ -52,7 +52,8 @@ servidor en la URL.
 por `sAMAccountName` y asigna un rol a partir de una pertenencia directa
 (`memberOf`) o de la OU donde está ubicado el usuario. Se acepta el nombre
 `sAMAccountName` o el UPN del usuario. Los DN deben coincidir con la estructura
-real del dominio; actualizá `ROLE_DN_MAP` si cambia.
+real del dominio; actualizá `ROLE_DN_MAP` si cambia. El grupo
+`GG_Consultores` ubicado directamente en `OU=ticketera` asigna el rol Consulta.
 
 `AD_USE_SSL=true` habilita LDAPS (puerto 636 por defecto); el certificado del
 servidor debe ser confiable para el equipo que ejecuta la aplicación.

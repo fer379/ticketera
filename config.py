@@ -40,6 +40,7 @@ class Config:
         "cn=ticketera_usuario,ou=ticketera,dc=ifts,dc=local": "Usuario",
         "cn=ticketera_consultor,ou=ticketera,dc=ifts,dc=local": "Consulta",
         "cn=ticketera_consulta,ou=ticketera,dc=ifts,dc=local": "Consulta",
+        "cn=gg_consultores,ou=ticketera,dc=ifts,dc=local": "Consulta",
         (
             "cn=ticketera_admin,ou=ticketera_admin,ou=ticketera,dc=ifts,dc=local"
         ): "Admin",

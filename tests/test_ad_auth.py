@@ -47,6 +47,15 @@ class AdAuthTests(unittest.TestCase):
 
         self.assertEqual(_resolve_role(attributes, Config.ROLE_DN_MAP), "Admin")
 
+    def test_resolves_consultores_security_group_from_ad(self):
+        attributes = {
+            "memberOf": [
+                "CN=GG_Consultores,OU=ticketera,DC=ifts,DC=local"
+            ]
+        }
+
+        self.assertEqual(_resolve_role(attributes, Config.ROLE_DN_MAP), "Consulta")
+
     def test_resolves_user_in_role_ou(self):
         attributes = {
             "distinguishedName": [
