@@ -32,6 +32,27 @@ class TicketFormTests(unittest.TestCase):
         app.config["ACCESS_START"] = self.original_access_start
         app.config["ACCESS_END"] = self.original_access_end
 
+    def test_login_template_and_shared_static_assets_load(self):
+        response = self.client.get("/login")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.get_data(as_text=True)
+        self.assertIn("/static/css/style.css", body)
+        self.assertIn("/static/js/script.js", body)
+
+        css_response = self.client.get("/static/css/style.css")
+        js_response = self.client.get("/static/js/script.js")
+        try:
+            self.assertEqual(css_response.status_code, 200)
+            self.assertIn(
+                "prefers-reduced-motion", css_response.get_data(as_text=True)
+            )
+            self.assertEqual(js_response.status_code, 200)
+            self.assertIn("toggle-password", js_response.get_data(as_text=True))
+        finally:
+            css_response.close()
+            js_response.close()
+
     def test_invalid_ticket_form_preserves_values_and_marks_fields(self):
         response = self.client.post(
             "/tickets/nuevo",

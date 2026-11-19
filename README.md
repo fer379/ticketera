@@ -100,11 +100,13 @@ el equipo de soporte debe revisar el comentario y decidir qué acción tomar.
 - `.env.example`: plantilla de configuración para crear `.env` en una instalación nueva.
 - `.env`: configuración local activa; contiene datos sensibles y no debe compartirse.
 - `.gitignore`: evita incluir el entorno virtual, la base local y `.env` al compartir el código.
-- `templates/base.html`: marco visual compartido, navegación, mensajes y colores.
-- `templates/login.html`: ingreso con cuenta de AD.
-- `templates/tickets_list.html`: panel, resumen y búsqueda de tickets.
-- `templates/ticket_new.html`: formulario para registrar una solicitud.
-- `templates/ticket_detail.html`: detalle, historial y acciones permitidas por rol.
+- `templates/base.html`: marco visual compartido, navegación y mensajes.
+- `templates/auth/login.html`: ingreso con cuenta de AD.
+- `templates/tickets/list.html`: panel, resumen y búsqueda de tickets.
+- `templates/tickets/new.html`: formulario para registrar una solicitud.
+- `templates/tickets/detail.html`: detalle, historial y acciones permitidas por rol.
+- `static/css/style.css`: estilos y transiciones compartidos.
+- `static/js/script.js`: interacciones del navegador, como mostrar u ocultar la contraseña.
 - `requirements.txt`: paquetes de Python que necesita la aplicación.
 - `tests/`: pruebas automáticas de autenticación, permisos, fechas y formularios.
 

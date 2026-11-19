@@ -134,7 +134,7 @@ def schedule_blocked():
     end_str = app.config["ACCESS_END"].strftime("%H:%M")
     return (
         render_template(
-            "login.html",
+            "auth/login.html",
             blocked=True,
             domain=app.config["AD_DOMAIN"],
             now_str=now_str,
@@ -156,7 +156,7 @@ def login():
         session.clear()
         return (
             render_template(
-                "login.html",
+                "auth/login.html",
                 blocked=True,
                 domain=app.config["AD_DOMAIN"],
                 now_str=now_str,
@@ -180,7 +180,7 @@ def login():
                 "danger",
             )
             return render_template(
-                "login.html",
+                "auth/login.html",
                 blocked=False,
                 domain=app.config["AD_DOMAIN"],
                 now_str=now_str,
@@ -195,7 +195,7 @@ def login():
                 "danger",
             )
             return render_template(
-                "login.html",
+                "auth/login.html",
                 blocked=False,
                 domain=app.config["AD_DOMAIN"],
                 now_str=now_str,
@@ -210,7 +210,7 @@ def login():
                 "danger",
             )
             return render_template(
-                "login.html",
+                "auth/login.html",
                 blocked=False,
                 domain=app.config["AD_DOMAIN"],
                 now_str=now_str,
@@ -228,7 +228,7 @@ def login():
         return redirect(url_for("tickets_list"))
 
     return render_template(
-        "login.html",
+        "auth/login.html",
         blocked=False,
         domain=app.config["AD_DOMAIN"],
         now_str=now_str,
@@ -288,7 +288,7 @@ def tickets_list():
     tickets = filtered_q.order_by(Ticket.updated_at.desc()).all()
 
     return render_template(
-        "tickets_list.html",
+        "tickets/list.html",
         user=user,
         tickets=tickets,
         stats=stats,
@@ -339,7 +339,7 @@ def ticket_new():
 
         if errors:
             return render_template(
-                "ticket_new.html",
+                "tickets/new.html",
                 user=user,
                 priorities=VALID_PRIORITIES,
                 form_data=form_data,
@@ -372,7 +372,7 @@ def ticket_new():
         return redirect(url_for("ticket_detail", ticket_id=ticket.id))
 
     return render_template(
-        "ticket_new.html",
+        "tickets/new.html",
         user=user,
         priorities=VALID_PRIORITIES,
         form_data={
@@ -416,7 +416,7 @@ def ticket_detail(ticket_id: int):
 
         if errors:
             return render_template(
-                "ticket_detail.html",
+                "tickets/detail.html",
                 user=user,
                 ticket=ticket,
                 statuses=VALID_STATUSES,
@@ -476,7 +476,7 @@ def ticket_detail(ticket_id: int):
         return redirect(url_for("ticket_detail", ticket_id=ticket.id))
 
     return render_template(
-        "ticket_detail.html",
+        "tickets/detail.html",
         user=user,
         ticket=ticket,
         statuses=VALID_STATUSES,

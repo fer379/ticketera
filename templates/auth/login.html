@@ -2,60 +2,6 @@
 {% block title %}Ingresar - Ticketera{% endblock %}
 {% block content %}
 <!-- Inicio de sesión en Active Directory. -->
-<style>
-  .login-layout {
-    min-height: min(72vh, 680px);
-    display: grid;
-    place-items: center;
-    padding: 1.5rem 0;
-  }
-
-  .login-card {
-    border: 0;
-    border-radius: 1rem;
-    overflow: hidden;
-  }
-
-  .login-card-header {
-    background: linear-gradient(135deg, #174f55, #087f8c);
-    color: #fff;
-    padding: 2rem;
-    border-bottom: 4px solid #d6ad45;
-  }
-
-  .login-brand-mark {
-    width: 3rem;
-    height: 3rem;
-    display: grid;
-    place-items: center;
-    border-radius: 0.85rem;
-    background: rgba(255, 255, 255, 0.16);
-    color: #ffe49a;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-  }
-
-  .login-card-header h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-  }
-
-  .login-card-header p {
-    color: rgba(255, 255, 255, 0.78);
-  }
-
-  .login-info {
-    border-radius: 0.75rem;
-    background: #eef7f5;
-    padding: 0.85rem 1rem;
-  }
-
-  .login-submit {
-    min-height: 3rem;
-    font-weight: 600;
-  }
-</style>
-
 <div class="login-layout">
   <div class="row justify-content-center w-100">
     <div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5">
@@ -147,22 +93,4 @@
     </div>
   </div>
 </div>
-
-<script>
-  const passwordInput = document.getElementById("password");
-  const togglePassword = document.getElementById("toggle-password");
-
-  if (passwordInput && togglePassword) {
-    togglePassword.addEventListener("click", () => {
-      const showPassword = passwordInput.type === "password";
-      passwordInput.type = showPassword ? "text" : "password";
-      togglePassword.textContent = showPassword ? "Ocultar" : "Mostrar";
-      togglePassword.setAttribute("aria-pressed", String(showPassword));
-      togglePassword.setAttribute(
-        "aria-label",
-        showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
-      );
-    });
-  }
-</script>
 {% endblock %}
