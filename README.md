@@ -57,6 +57,10 @@ real del dominio; actualizá `ROLE_DN_MAP` si cambia.
 `AD_USE_SSL=true` habilita LDAPS (puerto 636 por defecto); el certificado del
 servidor debe ser confiable para el equipo que ejecuta la aplicación.
 
+Si el login indica que no pudo conectar con Active Directory, comprobá que la
+VM esté encendida, que `AD_SERVER` tenga su IP actual y que el equipo pueda
+alcanzar el puerto LDAP configurado (389 sin SSL o 636 con LDAPS).
+
 El acceso se restringe por defecto a las 08:00–18:00, según `TIMEZONE`.
 Para una prueba fuera de ese horario, ajustá temporalmente `ACCESS_START` o
 `ACCESS_END` en `.env` y restauralos después.

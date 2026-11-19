@@ -6,6 +6,8 @@ from datetime import datetime, time, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from ad_auth import ADConnectionError
+
 with patch.dict(os.environ, {"SECRET_KEY": "test-secret"}):
     from app import app
 
@@ -52,6 +54,25 @@ class TicketFormTests(unittest.TestCase):
         finally:
             css_response.close()
             js_response.close()
+
+    def test_login_shows_ad_connectivity_error_instead_of_internal_server_error(self):
+        with patch(
+            "app.authenticate_ad",
+            side_effect=ADConnectionError("connection timed out"),
+        ):
+            response = self.client.post(
+                "/login",
+                data={
+                    "csrf_token": "test-csrf-token",
+                    "username": "test.user",
+                    "password": "not-a-real-password",
+                },
+            )
+
+        body = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("No se pudo conectar con Active Directory.", body)
+        self.assertNotIn("connection timed out", body)
 
     def test_invalid_ticket_form_preserves_values_and_marks_fields(self):
         response = self.client.post(

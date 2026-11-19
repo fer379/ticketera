@@ -5,8 +5,13 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from ldap3 import ALL, NTLM, SIMPLE, SUBTREE, Connection, Server
+from ldap3.core.exceptions import LDAPException
 from ldap3.core.results import RESULT_INVALID_CREDENTIALS
 from ldap3.utils.conv import escape_filter_chars
+
+
+class ADConnectionError(Exception):
+    """Active Directory could not be contacted or completed the LDAP request."""
 
 
 class ADUserNotFoundError(Exception):
@@ -115,48 +120,61 @@ def authenticate_ad(
     )
 
     try:
-        if not connection.bind():
-            if connection.result.get("result") == RESULT_INVALID_CREDENTIALS:
-                return None
-            message = connection.result.get("message") or "respuesta LDAP sin detalle"
-            raise RuntimeError(f"No se pudo autenticar contra Active Directory: {message}")
+        try:
+            if not connection.bind():
+                if connection.result.get("result") == RESULT_INVALID_CREDENTIALS:
+                    return None
+                message = (
+                    connection.result.get("message") or "respuesta LDAP sin detalle"
+                )
+                raise RuntimeError(
+                    f"No se pudo autenticar contra Active Directory: {message}"
+                )
 
-        search_ok = connection.search(
-            search_base=config["AD_BASE_DN"],
-            search_filter=search_filter,
-            search_scope=SUBTREE,
-            attributes=[
-                "sAMAccountName",
-                "displayName",
-                "cn",
-                "distinguishedName",
-                "memberOf",
-            ],
-        )
-        if not search_ok and connection.result.get("result") != 0:
-            message = connection.result.get("message") or "respuesta LDAP sin detalle"
-            raise RuntimeError(f"No se pudo buscar el usuario en Active Directory: {message}")
-        if len(connection.entries) != 1:
-            raise ADUserNotFoundError
+            search_ok = connection.search(
+                search_base=config["AD_BASE_DN"],
+                search_filter=search_filter,
+                search_scope=SUBTREE,
+                attributes=[
+                    "sAMAccountName",
+                    "displayName",
+                    "cn",
+                    "distinguishedName",
+                    "memberOf",
+                ],
+            )
+            if not search_ok and connection.result.get("result") != 0:
+                message = (
+                    connection.result.get("message") or "respuesta LDAP sin detalle"
+                )
+                raise RuntimeError(
+                    f"No se pudo buscar el usuario en Active Directory: {message}"
+                )
+            if len(connection.entries) != 1:
+                raise ADUserNotFoundError
 
-        attributes = connection.entries[0].entry_attributes_as_dict
-        role = _resolve_role(attributes, config["ROLE_DN_MAP"])
-        account_name = _attribute_values(attributes, "sAMAccountName")
-        if not role:
-            raise ADRoleNotAssignedError
-        if not account_name:
-            raise ADUserNotFoundError
+            attributes = connection.entries[0].entry_attributes_as_dict
+            role = _resolve_role(attributes, config["ROLE_DN_MAP"])
+            account_name = _attribute_values(attributes, "sAMAccountName")
+            if not role:
+                raise ADRoleNotAssignedError
+            if not account_name:
+                raise ADUserNotFoundError
 
-        display_name = (
-            _attribute_values(attributes, "displayName")
-            or _attribute_values(attributes, "cn")
-            or account_name
-        )[0]
-        return {
-            "username": account_name[0],
-            "display_name": display_name,
-            "role": role,
-        }
+            display_name = (
+                _attribute_values(attributes, "displayName")
+                or _attribute_values(attributes, "cn")
+                or account_name
+            )[0]
+            return {
+                "username": account_name[0],
+                "display_name": display_name,
+                "role": role,
+            }
+        except (LDAPException, RuntimeError) as error:
+            raise ADConnectionError(
+                "No se pudo completar la comunicación con Active Directory."
+            ) from error
     finally:
         if connection.bound:
             connection.unbind()

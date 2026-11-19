@@ -6,8 +6,14 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from ldap3 import NTLM, SIMPLE
+from ldap3.core.exceptions import LDAPSocketOpenError
 
-from ad_auth import ADRoleNotAssignedError, _resolve_role, authenticate_ad
+from ad_auth import (
+    ADConnectionError,
+    ADRoleNotAssignedError,
+    _resolve_role,
+    authenticate_ad,
+)
 
 with patch.dict(os.environ, {"SECRET_KEY": "test-secret"}):
     from config import Config
@@ -168,6 +174,28 @@ class AdAuthTests(unittest.TestCase):
 
         with patch("ad_auth.Server"), patch("ad_auth.Connection", FakeConnection):
             self.assertIsNone(authenticate_ad("alice", "wrong", config))
+
+    def test_ldap_connection_failure_is_reported_as_ad_connection_error(self):
+        class FakeConnection:
+            bound = False
+
+            def __init__(self, server, **kwargs):
+                pass
+
+            def bind(self):
+                raise LDAPSocketOpenError("connection timed out")
+
+        config = {
+            "AD_DOMAIN": "IFTS.local",
+            "AD_SERVER": "ldap://192.168.56.101",
+            "AD_USE_SSL": False,
+            "AD_BASE_DN": "DC=IFTS,DC=local",
+            "ROLE_DN_MAP": ROLE_DN_MAP,
+        }
+
+        with patch("ad_auth.Server"), patch("ad_auth.Connection", FakeConnection):
+            with self.assertRaises(ADConnectionError):
+                authenticate_ad("alice", "not-a-real-password", config)
 
     def test_authenticated_user_without_matching_role_is_distinguished(self):
         entry = SimpleNamespace(

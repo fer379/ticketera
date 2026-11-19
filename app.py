@@ -20,6 +20,7 @@ from flask import (
 )
 
 from ad_auth import (
+    ADConnectionError,
     ADUserNotFoundError,
     ADRoleNotAssignedError,
     authenticate_ad,
@@ -173,6 +174,28 @@ def login():
 
         try:
             user_info = authenticate_ad(username, password, app.config)
+        except ADConnectionError as error:
+            app.logger.error(
+                "Fallo de comunicación con Active Directory durante el login: %s",
+                error.__cause__ or error,
+            )
+            flash(
+                "No se pudo conectar con Active Directory. Verificá que la VM esté "
+                "encendida, que AD_SERVER tenga la IP actual y que la red permita "
+                "LDAP (puerto 389) o LDAPS (puerto 636).",
+                "danger",
+            )
+            return (
+                render_template(
+                    "auth/login.html",
+                    blocked=False,
+                    domain=app.config["AD_DOMAIN"],
+                    now_str=now_str,
+                    start_str=start_str,
+                    end_str=end_str,
+                ),
+                503,
+            )
         except ADUserNotFoundError:
             flash(
                 "Active Directory aceptó la autenticación, pero no encontró "
