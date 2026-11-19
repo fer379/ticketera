@@ -280,6 +280,37 @@ class TicketFormTests(unittest.TestCase):
         delete_ticket.assert_called_once_with(ticket)
         commit.assert_called_once()
 
+    def test_admin_manage_view_uses_the_shared_delete_confirmation_modal(self):
+        ticket = SimpleNamespace(
+            id=1,
+            created_by="test.user",
+            created_by_name="Test User",
+            title="Test ticket",
+            description="Ticket description for testing.",
+            category="Hardware",
+            status="Abierto",
+            priority="Media",
+            assigned_to="",
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            history=[],
+        )
+        with self.client.session_transaction() as session:
+            user = session["user"].copy()
+            user["role"] = "Admin"
+            session["user"] = user
+
+        with patch("app.db.session.get", return_value=ticket):
+            response = self.client.get("/tickets/1")
+
+        body = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('data-bs-target="#deleteTicketModal"', body)
+        self.assertIn('data-delete-url="/tickets/1/eliminar"', body)
+        self.assertIn('id="deleteTicketModal"', body)
+        self.assertGreater(body.index('id="deleteTicketModal"'), body.index("</main>"))
+        self.assertNotIn("onsubmit=", body)
+
     def test_ticket_filters_return_only_the_results_fragment_for_ajax(self):
         class FakeQuery:
             def all(self):
@@ -349,7 +380,12 @@ class TicketFormTests(unittest.TestCase):
                 if role == "Admin":
                     self.assertIn('id="deleteTicketModal"', body)
                     self.assertIn('data-delete-url="/tickets/1/eliminar"', body)
+                    self.assertGreater(
+                        body.index('id="deleteTicketModal"'),
+                        body.index("</main>"),
+                    )
                 else:
+                    self.assertNotIn('id="deleteTicketModal"', body)
                     self.assertNotIn('data-bs-target="#deleteTicketModal"', body)
                 if role == "Usuario":
                     self.assertIn("Ver y comentar", body)

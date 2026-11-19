@@ -102,10 +102,15 @@
 
         {% if user.role == 'Admin' %}
         <hr>
-        <form method="post" action="{{ url_for('ticket_delete', ticket_id=ticket.id) }}" onsubmit="return confirm('¿Eliminar definitivamente este ticket?');">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="btn btn-outline-danger btn-sm w-100">Eliminar ticket</button>
-        </form>
+        <button
+          type="button"
+          class="btn btn-outline-danger btn-sm w-100"
+          data-bs-toggle="modal"
+          data-bs-target="#deleteTicketModal"
+          data-delete-url="{{ url_for('ticket_delete', ticket_id=ticket.id) }}"
+          data-ticket-id="{{ ticket.id }}"
+          data-ticket-title="{{ ticket.title }}"
+        >Eliminar ticket</button>
         {% endif %}
       </div>
     </div>
@@ -147,4 +152,10 @@
     {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block modals %}
+  {% if user.role == 'Admin' %}
+    {% include "tickets/_delete_modal.html" %}
+  {% endif %}
 {% endblock %}

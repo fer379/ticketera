@@ -79,8 +79,9 @@ listado de Usuario se limita a sus propias solicitudes. Sus observaciones se
 registran con fecha y autor en el historial, sin reabrir ni cambiar el estado;
 el equipo de soporte debe revisar el comentario y decidir qué acción tomar.
 En el panel, las tarjetas de estado filtran los tickets sin recargar la página.
-Solo Admin ve el botón de eliminación en cada fila; la acción solicita
-confirmación antes de borrar definitivamente el ticket.
+Solo Admin ve la opción de eliminación en el listado y en la pantalla de
+gestión; ambas solicitan confirmación antes de borrar definitivamente el
+ticket.
 
 ## Persistencia, fechas y seguridad
 
