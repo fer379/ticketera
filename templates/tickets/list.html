@@ -23,7 +23,7 @@
     </p>
   </div>
   <div class="d-flex gap-2">
-    <a href="{{ url_for('export_csv', status=status_filter, priority=priority_filter) }}" class="btn btn-outline-success">
+    <a id="export-csv" href="{{ url_for('export_csv', status=status_filter, priority=priority_filter) }}" class="btn btn-outline-success">
       Exportar CSV
     </a>
     {% if user.role in ['Admin', 'Operador', 'Usuario'] %}
@@ -37,27 +37,41 @@
 <!-- Contadores para conocer rápidamente el volumen por estado. -->
 <div class="row g-3 mb-4">
   <div class="col-6 col-md">
-    <div class="card text-center border-secondary">
+    <a
+      href="{{ url_for('tickets_list') }}"
+      class="card ticket-summary-card text-center {% if not status_filter and not priority_filter and not search_q %}is-selected{% endif %}"
+      data-ajax-filter
+      data-status-filter=""
+      aria-label="Mostrar todos los tickets visibles"
+      aria-current="{{ 'true' if not status_filter and not priority_filter and not search_q else 'false' }}"
+    >
       <div class="card-body py-2">
         <div class="small text-muted">{% if user.role == 'Usuario' %}Mis solicitudes{% else %}Tickets visibles{% endif %}</div>
         <div class="fs-4 fw-bold">{{ stats['total'] }}</div>
       </div>
-    </div>
+    </a>
   </div>
   {% for st in statuses %}
   <div class="col-6 col-md">
-    <div class="card text-center">
+    <a
+      href="{{ url_for('tickets_list', status=st, priority=priority_filter, q=search_q) }}"
+      class="card ticket-summary-card text-center {% if status_filter == st %}is-selected{% endif %}"
+      data-ajax-filter
+      data-status-filter="{{ st }}"
+      aria-label="Filtrar tickets por estado: {{ st }}"
+      aria-current="{{ 'true' if status_filter == st else 'false' }}"
+    >
       <div class="card-body py-2">
         <div class="small text-muted">{{ st }}</div>
         <div class="fs-4 fw-bold">{{ stats[st] }}</div>
       </div>
-    </div>
+    </a>
   </div>
   {% endfor %}
 </div>
 
 <!-- Filtros disponibles para buscar tickets sin modificar sus datos. -->
-<form method="get" class="card card-body mb-4">
+<form id="ticket-filters" method="get" action="{{ url_for('tickets_list') }}" class="card card-body mb-4">
   <div class="row g-2 align-items-end">
     <div class="col-md-4">
       <label class="form-label small">Buscar</label>
@@ -83,55 +97,38 @@
     </div>
     <div class="col-md-2 d-flex gap-1">
       <button type="submit" class="btn btn-dark w-100">Filtrar</button>
-      <a href="{{ url_for('tickets_list') }}" class="btn btn-outline-secondary">Limpiar</a>
+      <a href="{{ url_for('tickets_list') }}" data-ajax-filter class="btn btn-outline-secondary">Limpiar</a>
     </div>
   </div>
 </form>
 
-<div class="card shadow-sm">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <thead class="table-dark">
-        <tr>
-          <th>#</th>
-          <th>Título</th>
-          <th>Categoría</th>
-          <th>Estado</th>
-          <th>Prioridad</th>
-          <th>Solicitante</th>
-          <th>Responsable</th>
-          <th>Actualizado (GMT-3)</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for t in tickets %}
-        <tr>
-          <td>{{ t.id }}</td>
-          <td><strong>{{ t.title }}</strong></td>
-          <td>{{ t.category }}</td>
-          <td><span class="badge ticket-status" data-status="{{ t.status }}">{{ t.status }}</span></td>
-          <td>
-            <span class="badge {% if t.priority == 'Crítica' %}bg-danger{% elif t.priority == 'Alta' %}bg-warning text-dark{% else %}bg-primary{% endif %}">
-              {{ t.priority }}
-            </span>
-          </td>
-          <td>{{ t.created_by }}</td>
-          <td>{{ t.assigned_to or 'Sin asignar' }}</td>
-          <td class="small">{{ t.updated_at|argentina_datetime }}</td>
-          <td>
-            <a href="{{ url_for('ticket_detail', ticket_id=t.id) }}" class="btn btn-sm btn-outline-primary">
-              {% if user.role in ['Admin', 'Operador'] %}Gestionar{% elif user.role == 'Usuario' %}Ver y comentar{% else %}Ver detalle{% endif %}
-            </a>
-          </td>
-        </tr>
-        {% else %}
-        <tr>
-          <td colspan="9" class="text-center text-muted py-4">No se encontraron tickets con los filtros actuales.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<div id="filter-feedback" class="alert alert-danger d-none" role="alert"></div>
+<div id="ticket-results" aria-live="polite">
+  {% include "tickets/_results.html" %}
+</div>
+
+{% if user.role == 'Admin' %}
+<div class="modal fade" id="deleteTicketModal" tabindex="-1" aria-labelledby="delete-ticket-title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title h5" id="delete-ticket-title">Eliminar ticket</h2>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p>¿Estás seguro de que querés eliminar este ticket?</p>
+        <p class="fw-semibold mb-2" id="delete-ticket-label"></p>
+        <p class="small text-muted mb-0">Esta acción es permanente y no se puede deshacer.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="delete-ticket-form" method="post" action="{{ url_for('ticket_delete', ticket_id=0) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button id="confirm-delete-ticket" type="submit" class="btn btn-danger" disabled>Sí, eliminar</button>
+        </form>
+      </div>
+    </div>
   </div>
 </div>
+{% endif %}
 {% endblock %}

@@ -78,6 +78,9 @@ La pantalla principal muestra una descripción y acciones acordes al rol. El
 listado de Usuario se limita a sus propias solicitudes. Sus observaciones se
 registran con fecha y autor en el historial, sin reabrir ni cambiar el estado;
 el equipo de soporte debe revisar el comentario y decidir qué acción tomar.
+En el panel, las tarjetas de estado filtran los tickets sin recargar la página.
+Solo Admin ve el botón de eliminación en cada fila; la acción solicita
+confirmación antes de borrar definitivamente el ticket.
 
 ## Persistencia, fechas y seguridad
 
@@ -107,10 +110,11 @@ el equipo de soporte debe revisar el comentario y decidir qué acción tomar.
 - `templates/base.html`: marco visual compartido, navegación y mensajes.
 - `templates/auth/login.html`: ingreso con cuenta de AD.
 - `templates/tickets/list.html`: panel, resumen y búsqueda de tickets.
+- `templates/tickets/_results.html`: tabla reutilizada por el panel y sus filtros dinámicos.
 - `templates/tickets/new.html`: formulario para registrar una solicitud.
 - `templates/tickets/detail.html`: detalle, historial y acciones permitidas por rol.
 - `static/css/style.css`: estilos y transiciones compartidos.
-- `static/js/script.js`: interacciones del navegador, como mostrar u ocultar la contraseña.
+- `static/js/script.js`: interacciones del navegador, filtros sin recarga y avisos temporales.
 - `requirements.txt`: paquetes de Python que necesita la aplicación.
 - `tests/`: pruebas automáticas de autenticación, permisos, fechas y formularios.
 

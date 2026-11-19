@@ -39,6 +39,7 @@ class TicketFormTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         body = response.get_data(as_text=True)
+        self.assertIn('placeholder="NombreDeUsuario"', body)
         self.assertIn("/static/css/style.css", body)
         self.assertIn("/static/js/script.js", body)
 
@@ -252,6 +253,56 @@ class TicketFormTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_non_admin_cannot_delete_tickets(self):
+        response = self.client.post(
+            "/tickets/1/eliminar",
+            data={"csrf_token": "test-csrf-token"},
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_can_delete_ticket_after_confirmation_post(self):
+        ticket = SimpleNamespace(id=1)
+        with self.client.session_transaction() as session:
+            user = session["user"].copy()
+            user["role"] = "Admin"
+            session["user"] = user
+
+        with patch("app.db.session.get", return_value=ticket):
+            with patch("app.db.session.delete") as delete_ticket:
+                with patch("app.db.session.commit") as commit:
+                    response = self.client.post(
+                        "/tickets/1/eliminar",
+                        data={"csrf_token": "test-csrf-token"},
+                    )
+
+        self.assertEqual(response.status_code, 302)
+        delete_ticket.assert_called_once_with(ticket)
+        commit.assert_called_once()
+
+    def test_ticket_filters_return_only_the_results_fragment_for_ajax(self):
+        class FakeQuery:
+            def all(self):
+                return []
+
+            def filter(self, *args):
+                return self
+
+            def order_by(self, *args):
+                return self
+
+        with patch("app.visible_tickets_query", return_value=FakeQuery()):
+            response = self.client.get(
+                "/?status=Abierto",
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
+
+        body = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("<table", body)
+        self.assertNotIn("<html", body)
+        self.assertIn("No se encontraron tickets", body)
+
     def test_ticket_list_explains_each_role_view(self):
         role_titles = {
             "Admin": "Panel de administración",
@@ -295,6 +346,11 @@ class TicketFormTests(unittest.TestCase):
                 body = response.get_data(as_text=True)
                 self.assertIn(title, body)
                 self.assertIn('data-status="Abierto"', body)
+                if role == "Admin":
+                    self.assertIn('id="deleteTicketModal"', body)
+                    self.assertIn('data-delete-url="/tickets/1/eliminar"', body)
+                else:
+                    self.assertNotIn('data-bs-target="#deleteTicketModal"', body)
                 if role == "Usuario":
                     self.assertIn("Ver y comentar", body)
 

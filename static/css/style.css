@@ -62,6 +62,26 @@ body.bg-light {
     border-color 180ms ease;
 }
 
+.ticket-summary-card {
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ticket-summary-card .fs-4 {
+  color: var(--ticketera-celeste-dark);
+}
+
+.ticket-summary-card.is-selected {
+  border-color: var(--ticketera-gold);
+  box-shadow: 0 0 0 2px rgba(229, 184, 63, 0.25), var(--bs-box-shadow-sm);
+}
+
+.ticket-summary-card:focus-visible {
+  outline: 3px solid var(--ticketera-celeste);
+  outline-offset: 3px;
+}
+
 .card-header.bg-dark {
   background: linear-gradient(110deg, #183f5b, #267fa8) !important;
   border-bottom: 2px solid var(--ticketera-gold);
@@ -240,6 +260,39 @@ body.bg-light {
   letter-spacing: 0.01em;
 }
 
+#ticket-results[aria-busy="true"] {
+  opacity: 0.58;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.modal-content {
+  overflow: hidden;
+  border: 1px solid #cfe2ee;
+  border-radius: 1rem;
+  box-shadow: 8px 8px 0 rgba(24, 63, 91, 0.16);
+}
+
+.modal-header {
+  color: #fff;
+  background: linear-gradient(110deg, #183f5b, #267fa8);
+  border-bottom: 3px solid var(--ticketera-gold);
+}
+
+.modal-footer {
+  background-color: #f4faff;
+  border-top-color: #d5e7f2;
+}
+
+.btn-danger {
+  --bs-btn-bg: #bd3944;
+  --bs-btn-border-color: #bd3944;
+  --bs-btn-hover-bg: #a82f39;
+  --bs-btn-hover-border-color: #a82f39;
+  --bs-btn-active-bg: #8e2630;
+  --bs-btn-active-border-color: #8e2630;
+}
+
 main.container {
   animation: page-enter 220ms ease-out both;
 }
@@ -273,7 +326,7 @@ main.container {
 }
 
 @media (hover: hover) {
-  .card:hover {
+  .ticket-summary-card:hover {
     border-color: #b7d9eb;
     box-shadow: 7px 8px 0 rgba(24, 63, 91, 0.13) !important;
     transform: translate(-1px, -2px);

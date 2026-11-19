@@ -29,6 +29,7 @@
   </nav>
 
   <main class="container pb-5">
+    <div id="flash-messages" aria-live="polite">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, msg in messages %}
@@ -39,6 +40,7 @@
         {% endfor %}
       {% endif %}
     {% endwith %}
+    </div>
 
     {% block content %}{% endblock %}
   </main>

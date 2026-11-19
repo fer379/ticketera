@@ -1,0 +1,60 @@
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>#</th>
+          <th>Título</th>
+          <th>Categoría</th>
+          <th>Estado</th>
+          <th>Prioridad</th>
+          <th>Solicitante</th>
+          <th>Responsable</th>
+          <th>Actualizado (GMT-3)</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tickets %}
+        <tr data-ticket-row-id="{{ t.id }}">
+          <td>{{ t.id }}</td>
+          <td><strong>{{ t.title }}</strong></td>
+          <td>{{ t.category }}</td>
+          <td><span class="badge ticket-status" data-status="{{ t.status }}">{{ t.status }}</span></td>
+          <td>
+            <span class="badge {% if t.priority == 'Crítica' %}bg-danger{% elif t.priority == 'Alta' %}bg-warning text-dark{% else %}bg-primary{% endif %}">
+              {{ t.priority }}
+            </span>
+          </td>
+          <td>{{ t.created_by }}</td>
+          <td>{{ t.assigned_to or 'Sin asignar' }}</td>
+          <td class="small">{{ t.updated_at|argentina_datetime }}</td>
+          <td>
+            <div class="d-flex flex-wrap gap-2">
+              <a href="{{ url_for('ticket_detail', ticket_id=t.id) }}" class="btn btn-sm btn-outline-primary">
+                {% if user.role in ['Admin', 'Operador'] %}Gestionar{% elif user.role == 'Usuario' %}Ver y comentar{% else %}Ver detalle{% endif %}
+              </a>
+              {% if user.role == 'Admin' %}
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger"
+                data-bs-toggle="modal"
+                data-bs-target="#deleteTicketModal"
+                data-delete-url="{{ url_for('ticket_delete', ticket_id=t.id) }}"
+                data-ticket-id="{{ t.id }}"
+                data-ticket-title="{{ t.title }}"
+                aria-label="Eliminar ticket {{ t.id }}"
+              >Eliminar</button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" class="text-center text-muted py-4">No se encontraron tickets con los filtros actuales.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

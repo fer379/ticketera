@@ -310,6 +310,13 @@ def tickets_list():
 
     tickets = filtered_q.order_by(Ticket.updated_at.desc()).all()
 
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render_template(
+            "tickets/_results.html",
+            user=user,
+            tickets=tickets,
+        )
+
     return render_template(
         "tickets/list.html",
         user=user,
