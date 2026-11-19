@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Iniciar Sesión - Active Directory{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-md-5">
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">Autenticación Active Directory</h5>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          Dominio: <strong>IFTS.local</strong> &bull; Horario habilitado: <strong>{{ start_str }} a {{ end_str }} hs</strong><br>
+          Hora actual del servidor: <strong>{{ now_str }}</strong>
+        </p>
+
+        {% if blocked %}
+          <div class="alert alert-danger">
+            <strong>Acceso denegado por restricción horaria.</strong><br>
+            El inicio de sesión únicamente está permitido entre las {{ start_str }} y las {{ end_str }} hs.
+          </div>
+        {% else %}
+          <form method="post" action="{{ url_for('login') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+              <label class="form-label">Usuario de dominio</label>
+              <input type="text" name="username" class="form-control" placeholder="ej. admin.test o admin.test@IFTS.local" required autofocus>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Contraseña</label>
+              <input type="password" name="password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Ingresar con AD</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
