@@ -1,3 +1,5 @@
+"""Modelos SQLAlchemy que representan tickets e historial de actividad."""
+
 from datetime import datetime, timezone
 from flask_sqlalchemy import SQLAlchemy
 
@@ -8,10 +10,13 @@ VALID_PRIORITIES = ("Baja", "Media", "Alta", "Crítica")
 
 
 def utcnow():
+    """Genera marcas de tiempo UTC para guardarlas de forma consistente."""
     return datetime.now(timezone.utc)
 
 
 class Ticket(db.Model):
+    """Solicitud de soporte con estado, prioridad, asignación y fechas."""
+
     __tablename__ = "tickets"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -38,6 +43,8 @@ class Ticket(db.Model):
 
 
 class TicketHistory(db.Model):
+    """Registro de creación, cambios y comentarios asociados a un ticket."""
+
     __tablename__ = "ticket_history"
 
     id = db.Column(db.Integer, primary_key=True)

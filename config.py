@@ -1,3 +1,5 @@
+"""Carga y valida la configuración de la aplicación desde el entorno y .env."""
+
 import os
 from datetime import time
 from dotenv import load_dotenv
@@ -6,6 +8,7 @@ load_dotenv()
 
 
 def _parse_time(value: str, fallback: time) -> time:
+    """Convierte una hora HH:MM; si el valor es inválido usa el valor por defecto."""
     try:
         hours, minutes = map(int, value.strip().split(":"))
         return time(hour=hours, minute=minutes)
@@ -14,6 +17,8 @@ def _parse_time(value: str, fallback: time) -> time:
 
 
 class Config:
+    """Ajustes de Flask, base SQLite, Active Directory y horario de acceso."""
+
     SECRET_KEY = os.getenv("SECRET_KEY")
     if not SECRET_KEY:
         raise RuntimeError("Configurá SECRET_KEY en el archivo .env antes de iniciar.")
@@ -38,6 +43,7 @@ class Config:
         (
             "cn=ticketera_admin,ou=ticketera_admin,ou=ticketera,dc=ifts,dc=local"
         ): "Admin",
+        "cn=gg_admin,ou=ticketera_admin,ou=ticketera,dc=ifts,dc=local": "Admin",
         (
             "cn=ticketera_operador,ou=ticketera_operador,ou=ticketera,dc=ifts,dc=local"
         ): "Operador",
@@ -58,7 +64,7 @@ class Config:
         "ou=ticketera_consulta,ou=ticketera,dc=ifts,dc=local": "Consulta",
     }
 
-    # Control horario
+    # ACCESS_START y ACCESS_END se interpretan en la zona indicada en TIMEZONE.
     ACCESS_START = _parse_time(os.getenv("ACCESS_START", "08:00"), time(8, 0))
     ACCESS_END = _parse_time(os.getenv("ACCESS_END", "18:00"), time(18, 0))
     TIMEZONE = os.getenv("TIMEZONE", "America/Argentina/Buenos_Aires")

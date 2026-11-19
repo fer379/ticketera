@@ -1,8 +1,11 @@
+"""Crea las tablas y carga ejemplos cuando la base todavía está vacía."""
+
 from app import app
 from models import Ticket, TicketHistory, db
 
 
 def seed():
+    """Inicializa la base de datos y agrega tickets demostrativos una sola vez."""
     with app.app_context():
         db.create_all()
         if Ticket.query.count() > 0:

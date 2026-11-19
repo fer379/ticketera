@@ -1,13 +1,24 @@
+"""Autenticación LDAP contra AD y resolución del rol de Ticketera."""
+
 from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
-from ldap3 import ALL, SUBTREE, Connection, Server
+from ldap3 import ALL, NTLM, SIMPLE, SUBTREE, Connection, Server
 from ldap3.core.results import RESULT_INVALID_CREDENTIALS
 from ldap3.utils.conv import escape_filter_chars
 
 
+class ADUserNotFoundError(Exception):
+    """The AD bind succeeded, but the account was not found under AD_BASE_DN."""
+
+
+class ADRoleNotAssignedError(Exception):
+    """The AD account has no unique role configured for Ticketera."""
+
+
 def _attribute_values(attributes: Mapping[str, Any], name: str) -> list[str]:
+    """Normaliza atributos LDAP que pueden llegar como texto o como lista."""
     value = attributes.get(name)
     if value is None:
         return []
@@ -19,6 +30,7 @@ def _attribute_values(attributes: Mapping[str, Any], name: str) -> list[str]:
 def _resolve_role(
     attributes: Mapping[str, Any], role_dn_map: Mapping[str, str]
 ) -> str | None:
+    """Busca un rol único primero en grupos directos y luego en la OU del usuario."""
     normalized_map = {
         dn.strip().lower(): role for dn, role in role_dn_map.items()
     }
@@ -49,6 +61,7 @@ def _resolve_role(
 def authenticate_ad(
     username: str, password: str, config: Mapping[str, Any]
 ) -> dict[str, str] | None:
+    """Valida las credenciales en AD y devuelve la identidad y el rol permitidos."""
     username = username.strip()
     if not username or not password:
         return None
@@ -56,12 +69,14 @@ def authenticate_ad(
     domain = config["AD_DOMAIN"].strip()
     if "\\" in username:
         bind_user = username
+        authentication = NTLM
         search_username = username.rsplit("\\", 1)[1]
         search_filter = (
             f"(sAMAccountName={escape_filter_chars(search_username)})"
         )
     elif "@" in username:
         bind_user = username
+        authentication = SIMPLE
         search_username = username.split("@", 1)[0]
         search_filter = (
             "(|"
@@ -70,6 +85,7 @@ def authenticate_ad(
         )
     else:
         bind_user = f"{username}@{domain}"
+        authentication = SIMPLE
         search_username = username
         search_filter = (
             f"(sAMAccountName={escape_filter_chars(search_username)})"
@@ -93,6 +109,7 @@ def authenticate_ad(
         server,
         user=bind_user,
         password=password,
+        authentication=authentication,
         auto_bind=False,
         raise_exceptions=False,
     )
@@ -120,13 +137,15 @@ def authenticate_ad(
             message = connection.result.get("message") or "respuesta LDAP sin detalle"
             raise RuntimeError(f"No se pudo buscar el usuario en Active Directory: {message}")
         if len(connection.entries) != 1:
-            return None
+            raise ADUserNotFoundError
 
         attributes = connection.entries[0].entry_attributes_as_dict
         role = _resolve_role(attributes, config["ROLE_DN_MAP"])
         account_name = _attribute_values(attributes, "sAMAccountName")
-        if not role or not account_name:
-            return None
+        if not role:
+            raise ADRoleNotAssignedError
+        if not account_name:
+            raise ADUserNotFoundError
 
         display_name = (
             _attribute_values(attributes, "displayName")

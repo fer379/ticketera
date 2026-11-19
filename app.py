@@ -1,7 +1,9 @@
+"""Rutas web, permisos, validaciones y exportación de la ticketera."""
+
 import csv
 import io
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from zoneinfo import ZoneInfo
 
@@ -17,7 +19,11 @@ from flask import (
     url_for,
 )
 
-from ad_auth import authenticate_ad
+from ad_auth import (
+    ADUserNotFoundError,
+    ADRoleNotAssignedError,
+    authenticate_ad,
+)
 from config import Config
 from models import Ticket, TicketHistory, VALID_PRIORITIES, VALID_STATUSES, db
 
@@ -30,10 +36,27 @@ db.init_app(app)
 
 
 def get_local_now() -> datetime:
+    """Devuelve la hora actual en la zona horaria configurada."""
     return datetime.now(ZoneInfo(app.config["TIMEZONE"]))
 
 
+def to_local_datetime(value: datetime) -> datetime:
+    """Interpreta fechas ingenuas de SQLite como UTC y las convierte a hora local."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(ZoneInfo(app.config["TIMEZONE"]))
+
+
+def format_argentina_datetime(value: datetime) -> str:
+    """Formatea una fecha para mostrarla en las pantallas de la aplicación."""
+    return to_local_datetime(value).strftime("%d/%m/%Y %H:%M")
+
+
+app.jinja_env.filters["argentina_datetime"] = format_argentina_datetime
+
+
 def is_within_access_hours() -> bool:
+    """Indica si la hora local actual está dentro del horario permitido."""
     now_t = get_local_now().time()
     start_t = app.config["ACCESS_START"]
     end_t = app.config["ACCESS_END"]
@@ -43,12 +66,14 @@ def is_within_access_hours() -> bool:
 
 
 def get_csrf_token() -> str:
+    """Crea y conserva el token que protege los formularios contra CSRF."""
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_hex(32)
     return session["csrf_token"]
 
 
 def validate_csrf():
+    """Rechaza operaciones POST que no tengan el token de sesión correcto."""
     token = request.form.get("csrf_token", "")
     if not token or token != session.get("csrf_token"):
         abort(403, description="Token CSRF inválido o expirado.")
@@ -59,6 +84,7 @@ app.jinja_env.globals["csrf_token"] = get_csrf_token
 
 @app.before_request
 def enforce_schedule_and_session():
+    """Exige horario habilitado y una sesión iniciada para las rutas privadas."""
     # Permite archivos estáticos y la pantalla de login
     if request.endpoint in ("static", "login", "schedule_blocked"):
         return
@@ -72,6 +98,7 @@ def enforce_schedule_and_session():
 
 
 def roles_required(*allowed_roles):
+    """Limita una ruta a los roles indicados."""
     def decorator(view_fn):
         @wraps(view_fn)
         def wrapped(*args, **kwargs):
@@ -86,6 +113,7 @@ def roles_required(*allowed_roles):
 
 
 def visible_tickets_query(user: dict):
+    """Devuelve todos los tickets visibles para el rol autenticado."""
     query = Ticket.query
     # Rol Usuario solo consulta sus propios tickets
     if user["role"] == "Usuario":
@@ -98,6 +126,7 @@ def visible_tickets_query(user: dict):
 
 @app.route("/horario-restringido")
 def schedule_blocked():
+    """Muestra la pantalla informativa cuando el acceso está fuera de horario."""
     now_str = get_local_now().strftime("%H:%M:%S")
     start_str = app.config["ACCESS_START"].strftime("%H:%M")
     end_str = app.config["ACCESS_END"].strftime("%H:%M")
@@ -105,6 +134,7 @@ def schedule_blocked():
         render_template(
             "login.html",
             blocked=True,
+            domain=app.config["AD_DOMAIN"],
             now_str=now_str,
             start_str=start_str,
             end_str=end_str,
@@ -115,6 +145,7 @@ def schedule_blocked():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    """Autentica con AD y crea la sesión de la aplicación."""
     now_str = get_local_now().strftime("%H:%M:%S")
     start_str = app.config["ACCESS_START"].strftime("%H:%M")
     end_str = app.config["ACCESS_END"].strftime("%H:%M")
@@ -125,6 +156,7 @@ def login():
             render_template(
                 "login.html",
                 blocked=True,
+                domain=app.config["AD_DOMAIN"],
                 now_str=now_str,
                 start_str=start_str,
                 end_str=end_str,
@@ -137,15 +169,48 @@ def login():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
-        user_info = authenticate_ad(username, password, app.config)
-        if not user_info:
+        try:
+            user_info = authenticate_ad(username, password, app.config)
+        except ADUserNotFoundError:
             flash(
-                "Credenciales inválidas o usuario sin rol asignado en Active Directory.",
+                "Active Directory aceptó la autenticación, pero no encontró "
+                "la cuenta dentro de AD_BASE_DN. Verificá el usuario y el DN base.",
                 "danger",
             )
             return render_template(
                 "login.html",
                 blocked=False,
+                domain=app.config["AD_DOMAIN"],
+                now_str=now_str,
+                start_str=start_str,
+                end_str=end_str,
+            )
+        except ADRoleNotAssignedError:
+            flash(
+                "Active Directory aceptó la autenticación, pero la cuenta no "
+                "tiene un rol de Ticketera reconocido. Verificá su grupo/OU y "
+                "el DN exacto en ROLE_DN_MAP de config.py.",
+                "danger",
+            )
+            return render_template(
+                "login.html",
+                blocked=False,
+                domain=app.config["AD_DOMAIN"],
+                now_str=now_str,
+                start_str=start_str,
+                end_str=end_str,
+            )
+
+        if not user_info:
+            flash(
+                "No se pudo validar el usuario o la contraseña. Ingresá tu "
+                "nombre de usuario sin @ y verificá la contraseña.",
+                "danger",
+            )
+            return render_template(
+                "login.html",
+                blocked=False,
+                domain=app.config["AD_DOMAIN"],
                 now_str=now_str,
                 start_str=start_str,
                 end_str=end_str,
@@ -163,6 +228,7 @@ def login():
     return render_template(
         "login.html",
         blocked=False,
+        domain=app.config["AD_DOMAIN"],
         now_str=now_str,
         start_str=start_str,
         end_str=end_str,
@@ -171,6 +237,7 @@ def login():
 
 @app.route("/logout", methods=["POST"])
 def logout():
+    """Cierra la sesión actual después de validar el formulario."""
     validate_csrf()
     session.clear()
     flash("Sesión cerrada correctamente.", "info")
@@ -182,6 +249,7 @@ def logout():
 
 @app.route("/")
 def tickets_list():
+    """Lista tickets, métricas y filtros respetando la visibilidad por rol."""
     user = session["user"]
     status_filter = request.args.get("status", "").strip()
     priority_filter = request.args.get("priority", "").strip()
@@ -233,28 +301,48 @@ def tickets_list():
 @app.route("/tickets/nuevo", methods=["GET", "POST"])
 @roles_required("Admin", "Operador", "Usuario")
 def ticket_new():
+    """Valida y registra un ticket nuevo o devuelve el formulario con errores."""
     user = session["user"]
     if request.method == "POST":
         validate_csrf()
-        title = request.form.get("title", "").strip()
-        category = request.form.get("category", "Soporte General").strip()[:60]
-        priority = request.form.get("priority", "Media").strip()
-        description = request.form.get("description", "").strip()
+        form_data = {
+            "title": request.form.get("title", "").strip(),
+            "category": (
+                request.form.get("category", "Soporte General").strip()[:60]
+                or "Soporte General"
+            ),
+            "priority": request.form.get("priority", "Media").strip(),
+            "description": request.form.get("description", "").strip(),
+        }
+        if form_data["priority"] not in VALID_PRIORITIES:
+            form_data["priority"] = "Media"
 
-        if len(title) < 4 or len(title) > 150:
-            flash("El título debe tener entre 4 y 150 caracteres.", "danger")
-            return render_template(
-                "ticket_new.html", user=user, priorities=VALID_PRIORITIES
+        errors = {}
+        title = form_data["title"]
+        category = form_data["category"]
+        priority = form_data["priority"]
+        description = form_data["description"]
+
+        if not title:
+            errors["title"] = "Ingresá un título para el ticket."
+        elif len(title) < 4 or len(title) > 150:
+            errors["title"] = "El título debe tener entre 4 y 150 caracteres."
+
+        if not description:
+            errors["description"] = "Ingresá una descripción del problema."
+        elif len(description) < 10:
+            errors["description"] = (
+                "La descripción debe tener al menos 10 caracteres."
             )
 
-        if len(description) < 10:
-            flash("La descripción debe tener al menos 10 caracteres.", "danger")
+        if errors:
             return render_template(
-                "ticket_new.html", user=user, priorities=VALID_PRIORITIES
+                "ticket_new.html",
+                user=user,
+                priorities=VALID_PRIORITIES,
+                form_data=form_data,
+                errors=errors,
             )
-
-        if priority not in VALID_PRIORITIES:
-            priority = "Media"
 
         ticket = Ticket(
             title=title,
@@ -281,11 +369,23 @@ def ticket_new():
         flash(f"Ticket #{ticket.id} creado correctamente.", "success")
         return redirect(url_for("ticket_detail", ticket_id=ticket.id))
 
-    return render_template("ticket_new.html", user=user, priorities=VALID_PRIORITIES)
+    return render_template(
+        "ticket_new.html",
+        user=user,
+        priorities=VALID_PRIORITIES,
+        form_data={
+            "title": "",
+            "category": "Soporte General",
+            "priority": "Media",
+            "description": "",
+        },
+        errors={},
+    )
 
 
 @app.route("/tickets/<int:ticket_id>", methods=["GET", "POST"])
 def ticket_detail(ticket_id: int):
+    """Muestra el detalle y permite actualizaciones solo a Admin y Operador."""
     user = session["user"]
     ticket = db.session.get(Ticket, ticket_id)
     if not ticket:
@@ -296,8 +396,11 @@ def ticket_detail(ticket_id: int):
 
     if request.method == "POST":
         validate_csrf()
-        if user["role"] == "Consulta":
-            abort(403, description="El rol Consulta tiene acceso de solo lectura.")
+        if user["role"] not in ("Admin", "Operador"):
+            abort(
+                403,
+                description="Tu rol tiene acceso de solo lectura a los tickets.",
+            )
 
         comment_text = request.form.get("comment", "").strip()
         changes = []
@@ -352,6 +455,7 @@ def ticket_detail(ticket_id: int):
 @app.route("/tickets/<int:ticket_id>/eliminar", methods=["POST"])
 @roles_required("Admin")
 def ticket_delete(ticket_id: int):
+    """Elimina un ticket; esta operación es exclusiva del rol Admin."""
     validate_csrf()
     ticket = db.session.get(Ticket, ticket_id)
     if not ticket:
@@ -364,6 +468,7 @@ def ticket_delete(ticket_id: int):
 
 @app.route("/reportes/exportar-csv")
 def export_csv():
+    """Exporta en CSV los tickets visibles y filtrados en hora argentina."""
     user = session["user"]
     status_filter = request.args.get("status", "").strip()
     priority_filter = request.args.get("priority", "").strip()
@@ -388,8 +493,8 @@ def export_csv():
             "Solicitante_AD",
             "Nombre_Solicitante",
             "Responsable_Asignado",
-            "Fecha_Creacion_UTC",
-            "Ultima_Actualizacion_UTC",
+            "Fecha_Creacion_Argentina_GMT-3",
+            "Ultima_Actualizacion_Argentina_GMT-3",
         ]
     )
 
@@ -404,8 +509,8 @@ def export_csv():
                 t.created_by,
                 t.created_by_name,
                 t.assigned_to or "Sin asignar",
-                t.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                t.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
+                to_local_datetime(t.created_at).strftime("%d/%m/%Y %H:%M:%S"),
+                to_local_datetime(t.updated_at).strftime("%d/%m/%Y %H:%M:%S"),
             ]
         )
 

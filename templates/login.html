@@ -1,39 +1,168 @@
 {% extends "base.html" %}
-{% block title %}Iniciar Sesión - Active Directory{% endblock %}
+{% block title %}Ingresar - Ticketera{% endblock %}
 {% block content %}
-<div class="row justify-content-center mt-5">
-  <div class="col-md-5">
-    <div class="card shadow-sm">
-      <div class="card-header bg-dark text-white">
-        <h5 class="mb-0">Autenticación Active Directory</h5>
-      </div>
-      <div class="card-body">
-        <p class="text-muted small mb-3">
-          Dominio: <strong>IFTS.local</strong> &bull; Horario habilitado: <strong>{{ start_str }} a {{ end_str }} hs</strong><br>
-          Hora actual del servidor: <strong>{{ now_str }}</strong>
-        </p>
+<!-- Inicio de sesión en Active Directory. -->
+<style>
+  .login-layout {
+    min-height: min(72vh, 680px);
+    display: grid;
+    place-items: center;
+    padding: 1.5rem 0;
+  }
 
-        {% if blocked %}
-          <div class="alert alert-danger">
-            <strong>Acceso denegado por restricción horaria.</strong><br>
-            El inicio de sesión únicamente está permitido entre las {{ start_str }} y las {{ end_str }} hs.
+  .login-card {
+    border: 0;
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+
+  .login-card-header {
+    background: linear-gradient(135deg, #174f55, #087f8c);
+    color: #fff;
+    padding: 2rem;
+    border-bottom: 4px solid #d6ad45;
+  }
+
+  .login-brand-mark {
+    width: 3rem;
+    height: 3rem;
+    display: grid;
+    place-items: center;
+    border-radius: 0.85rem;
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffe49a;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .login-card-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .login-card-header p {
+    color: rgba(255, 255, 255, 0.78);
+  }
+
+  .login-info {
+    border-radius: 0.75rem;
+    background: #eef7f5;
+    padding: 0.85rem 1rem;
+  }
+
+  .login-submit {
+    min-height: 3rem;
+    font-weight: 600;
+  }
+</style>
+
+<div class="login-layout">
+  <div class="row justify-content-center w-100">
+    <div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5">
+      <section class="card login-card shadow" aria-labelledby="login-title">
+        <div class="login-card-header">
+          <div class="login-brand-mark mb-3" aria-hidden="true">TS</div>
+          <p class="text-uppercase small fw-semibold mb-2">Portal de soporte</p>
+          <h1 id="login-title" class="mb-2">Ingresar a Ticketera</h1>
+          <p class="mb-0">Usá tu cuenta institucional para continuar.</p>
+        </div>
+
+        <div class="card-body p-4 p-md-5">
+          <div class="login-info mb-4">
+            <div class="d-flex justify-content-between align-items-center gap-3">
+              <span class="small text-secondary">Dominio</span>
+              <strong>{{ domain }}</strong>
+            </div>
+            <div class="d-flex justify-content-between align-items-center gap-3 mt-2">
+              <span class="small text-secondary">Horario habilitado</span>
+              <strong class="small">{{ start_str }}–{{ end_str }}</strong>
+            </div>
           </div>
-        {% else %}
-          <form method="post" action="{{ url_for('login') }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="mb-3">
-              <label class="form-label">Usuario de dominio</label>
-              <input type="text" name="username" class="form-control" placeholder="ej. admin.test o admin.test@IFTS.local" required autofocus>
+
+          {% if blocked %}
+            <div class="alert alert-warning mb-0" role="alert">
+              <h2 class="h6 alert-heading">Acceso fuera de horario</h2>
+              <p class="mb-1">El ingreso está habilitado de {{ start_str }} a {{ end_str }}.</p>
+              <p class="small mb-0">Hora actual del servidor: {{ now_str }}</p>
             </div>
-            <div class="mb-3">
-              <label class="form-label">Contraseña</label>
-              <input type="password" name="password" class="form-control" required>
-            </div>
-            <button type="submit" class="btn btn-primary w-100">Ingresar con AD</button>
-          </form>
-        {% endif %}
-      </div>
+          {% else %}
+            <form method="post" action="{{ url_for('login') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+              <div class="mb-3">
+                <label for="username" class="form-label fw-semibold">Nombre de usuario</label>
+                <div class="input-group input-group-lg">
+                  <input
+                    id="username"
+                    type="text"
+                    name="username"
+                    class="form-control"
+                    placeholder="fernandomartin"
+                    autocomplete="username"
+                    autocapitalize="none"
+                    spellcheck="false"
+                    aria-describedby="username-help"
+                    required
+                    autofocus
+                  >
+                  <span class="input-group-text text-secondary">@{{ domain }}</span>
+                </div>
+                <div id="username-help" class="form-text">
+                  Escribí solo la parte anterior a @{{ domain }}.
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <label for="password" class="form-label fw-semibold">Contraseña</label>
+                <div class="input-group input-group-lg">
+                  <input
+                    id="password"
+                    type="password"
+                    name="password"
+                    class="form-control"
+                    autocomplete="current-password"
+                    required
+                  >
+                  <button
+                    id="toggle-password"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    aria-controls="password"
+                    aria-pressed="false"
+                  >Mostrar</button>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-lg w-100 login-submit">
+                Ingresar
+              </button>
+            </form>
+
+            <p class="text-center text-secondary small mt-4 mb-0">
+              Autenticación segura con Active Directory.
+            </p>
+          {% endif %}
+        </div>
+      </section>
     </div>
   </div>
 </div>
+
+<script>
+  const passwordInput = document.getElementById("password");
+  const togglePassword = document.getElementById("toggle-password");
+
+  if (passwordInput && togglePassword) {
+    togglePassword.addEventListener("click", () => {
+      const showPassword = passwordInput.type === "password";
+      passwordInput.type = showPassword ? "text" : "password";
+      togglePassword.textContent = showPassword ? "Ocultar" : "Mostrar";
+      togglePassword.setAttribute("aria-pressed", String(showPassword));
+      togglePassword.setAttribute(
+        "aria-label",
+        showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+      );
+    });
+  }
+</script>
 {% endblock %}

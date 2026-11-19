@@ -22,6 +22,19 @@ Editá `.env`: establecé una `SECRET_KEY` aleatoria (por ejemplo,
 `python -c "import secrets; print(secrets.token_hex(32))"`), verificá el host LDAP,
 dominio, DN base y horario. No compartas ni publiques `.env`.
 
+Para cambiar el horario de acceso, editá en `.env`:
+
+```dotenv
+ACCESS_START=08:00
+ACCESS_END=18:00
+TIMEZONE=America/Argentina/Buenos_Aires
+```
+
+Usá el formato de 24 horas `HH:MM`. `ACCESS_START` es la hora de apertura y
+`ACCESS_END` la hora de cierre. Después de guardar `.env`, reiniciá la aplicación.
+`.env.example` muestra esos valores como referencia para una instalación nueva;
+el archivo que usa la aplicación es `.env`.
+
 Inicializá la base y ejecutá la aplicación:
 
 ```powershell
@@ -45,5 +58,60 @@ real del dominio; actualizá `ROLE_DN_MAP` si cambia.
 servidor debe ser confiable para el equipo que ejecuta la aplicación.
 
 El acceso se restringe por defecto a las 08:00–18:00, según `TIMEZONE`.
-Para una prueba de login fuera de ese horario, ajustá temporalmente `ACCESS_END`
-en `.env` y restauralo después.
+Para una prueba fuera de ese horario, ajustá temporalmente `ACCESS_START` o
+`ACCESS_END` en `.env` y restauralos después.
+
+## Funcionalidad y permisos
+
+| Rol de AD | Permisos en la aplicación |
+| --- | --- |
+| Admin | Consulta y gestiona todos los tickets, crea, asigna, actualiza y elimina. |
+| Operador | Consulta todos los tickets, crea y actualiza estado, prioridad, responsable e historial. |
+| Usuario | Crea tickets y consulta únicamente los que registró; no puede modificarlos. |
+| Consulta | Consulta todos los tickets y exporta reportes; no puede modificarlos. |
+
+La pantalla principal muestra una descripción y acciones acordes al rol. El
+listado de Usuario se limita a sus propias solicitudes.
+
+## Persistencia, fechas y seguridad
+
+- Los tickets e historiales se persisten en SQLite (`ticketera.db`).
+- Las fechas se guardan en UTC y se muestran/exportan en hora argentina
+  (`TIMEZONE`, por defecto `America/Argentina/Buenos_Aires`, GMT-3).
+- Los formularios validan campos y longitudes; las operaciones de escritura
+  requieren un token CSRF.
+- Las consultas de base usan SQLAlchemy ORM y filtros parametrizados.
+- `SECRET_KEY` se configura en `.env`; no publiques ni compartas ese archivo.
+- Para redes no aisladas, habilitá LDAPS y verificá la confianza del certificado
+  del controlador de dominio.
+
+## Mapa sencillo del código
+
+- `app.py`: conecta las piezas y define las páginas y acciones web. También
+  controla el horario, las sesiones, los roles, la validación de formularios y
+  la descarga CSV.
+- `ad_auth.py`: se comunica con Active Directory, comprueba el usuario y busca
+  su rol.
+- `config.py`: lee `.env` y reúne la configuración de Flask, AD, SQLite y horario.
+- `models.py`: describe cómo se guardan un ticket y sus cambios en SQLite.
+- `init_db.py`: prepara las tablas y, si la base está vacía, agrega ejemplos.
+- `.env.example`: plantilla de configuración para crear `.env` en una instalación nueva.
+- `.env`: configuración local activa; contiene datos sensibles y no debe compartirse.
+- `.gitignore`: evita incluir el entorno virtual, la base local y `.env` al compartir el código.
+- `templates/base.html`: marco visual compartido, navegación, mensajes y colores.
+- `templates/login.html`: ingreso con cuenta de AD.
+- `templates/tickets_list.html`: panel, resumen y búsqueda de tickets.
+- `templates/ticket_new.html`: formulario para registrar una solicitud.
+- `templates/ticket_detail.html`: detalle, historial y acciones permitidas por rol.
+- `requirements.txt`: paquetes de Python que necesita la aplicación.
+- `tests/`: pruebas automáticas de autenticación, permisos, fechas y formularios.
+
+La base SQLite se crea en `instance/ticketera.db` cuando se ejecuta la aplicación.
+
+### Cómo funciona una solicitud
+
+1. El usuario inicia sesión y `ad_auth.py` valida sus credenciales en AD.
+2. `config.py` relaciona el grupo o la OU del usuario con uno de los cuatro roles.
+3. `app.py` verifica el horario y limita las acciones según el rol.
+4. `models.py` y SQLAlchemy guardan tickets e historial en `ticketera.db`.
+5. Las plantillas muestran las pantallas; los reportes se descargan como CSV.

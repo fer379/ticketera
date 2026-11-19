@@ -1,8 +1,16 @@
+"""Pruebas de autenticación AD, formatos de usuario y asignación de roles."""
+
 import unittest
+import os
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from ad_auth import _resolve_role, authenticate_ad
+from ldap3 import NTLM, SIMPLE
+
+from ad_auth import ADRoleNotAssignedError, _resolve_role, authenticate_ad
+
+with patch.dict(os.environ, {"SECRET_KEY": "test-secret"}):
+    from config import Config
 
 
 ROLE_DN_MAP = {
@@ -13,6 +21,8 @@ ROLE_DN_MAP = {
 
 
 class AdAuthTests(unittest.TestCase):
+    """Comprueba cómo el módulo LDAP interpreta respuestas del directorio."""
+
     def test_resolves_nested_group_membership(self):
         attributes = {
             "memberOf": [
@@ -21,6 +31,15 @@ class AdAuthTests(unittest.TestCase):
         }
 
         self.assertEqual(_resolve_role(attributes, ROLE_DN_MAP), "Admin")
+
+    def test_resolves_screenshot_admin_group_mapping(self):
+        attributes = {
+            "memberOf": [
+                "CN=GG_Admin,OU=ticketera_admin,OU=ticketera,DC=ifts,DC=local"
+            ]
+        }
+
+        self.assertEqual(_resolve_role(attributes, Config.ROLE_DN_MAP), "Admin")
 
     def test_resolves_user_in_role_ou(self):
         attributes = {
@@ -84,8 +103,34 @@ class AdAuthTests(unittest.TestCase):
 
         with patch("ad_auth.Server"), patch("ad_auth.Connection", FakeConnection):
             user = authenticate_ad("alice", "not-a-real-password", config)
+            self.assertEqual(
+                FakeConnection.last_instance.kwargs["authentication"], SIMPLE
+            )
+            self.assertEqual(
+                FakeConnection.last_instance.kwargs["user"],
+                "alice@IFTS.local",
+            )
             upn_user = authenticate_ad(
                 "alice@IFTS.local", "not-a-real-password", config
+            )
+            self.assertEqual(
+                FakeConnection.last_instance.kwargs["authentication"], SIMPLE
+            )
+            self.assertEqual(
+                FakeConnection.last_instance.kwargs["user"], "alice@IFTS.local"
+            )
+            self.assertEqual(
+                FakeConnection.last_instance.search_kwargs["search_filter"],
+                "(|(sAMAccountName=alice)(userPrincipalName=alice@IFTS.local))",
+            )
+            netbios_user = authenticate_ad(
+                r"IFTS\alice", "not-a-real-password", config
+            )
+            self.assertEqual(
+                FakeConnection.last_instance.kwargs["authentication"], NTLM
+            )
+            self.assertEqual(
+                FakeConnection.last_instance.kwargs["user"], r"IFTS\alice"
             )
 
         self.assertEqual(
@@ -97,13 +142,10 @@ class AdAuthTests(unittest.TestCase):
             },
         )
         self.assertEqual(
-            FakeConnection.last_instance.kwargs["user"], "alice@IFTS.local"
+            FakeConnection.last_instance.kwargs["authentication"], NTLM
         )
+        self.assertEqual(netbios_user["username"], "alice")
         self.assertEqual(upn_user["username"], "alice")
-        self.assertEqual(
-            FakeConnection.last_instance.search_kwargs["search_filter"],
-            "(|(sAMAccountName=alice)(userPrincipalName=alice@IFTS.local))",
-        )
 
     def test_invalid_credentials_return_none(self):
         class FakeConnection:
@@ -126,6 +168,49 @@ class AdAuthTests(unittest.TestCase):
 
         with patch("ad_auth.Server"), patch("ad_auth.Connection", FakeConnection):
             self.assertIsNone(authenticate_ad("alice", "wrong", config))
+
+    def test_authenticated_user_without_matching_role_is_distinguished(self):
+        entry = SimpleNamespace(
+            entry_attributes_as_dict={
+                "sAMAccountName": "alice",
+                "displayName": "Alice Example",
+                "memberOf": [],
+                "distinguishedName": [
+                    "CN=Alice,OU=Users,DC=ifts,DC=local"
+                ],
+            }
+        )
+
+        class FakeConnection:
+            result = {"result": 0}
+            entries = [entry]
+            bound = False
+
+            def __init__(self, server, **kwargs):
+                pass
+
+            def bind(self):
+                self.bound = True
+                return True
+
+            def search(self, **kwargs):
+                return True
+
+            def unbind(self):
+                self.bound = False
+                return True
+
+        config = {
+            "AD_DOMAIN": "IFTS.local",
+            "AD_SERVER": "ldap://192.168.56.101",
+            "AD_USE_SSL": False,
+            "AD_BASE_DN": "DC=IFTS,DC=local",
+            "ROLE_DN_MAP": ROLE_DN_MAP,
+        }
+
+        with patch("ad_auth.Server"), patch("ad_auth.Connection", FakeConnection):
+            with self.assertRaises(ADRoleNotAssignedError):
+                authenticate_ad("alice", "not-a-real-password", config)
 
 
 if __name__ == "__main__":
