@@ -121,7 +121,7 @@
           <td class="small">{{ t.updated_at|argentina_datetime }}</td>
           <td>
             <a href="{{ url_for('ticket_detail', ticket_id=t.id) }}" class="btn btn-sm btn-outline-primary">
-              {% if user.role in ['Admin', 'Operador'] %}Gestionar{% else %}Ver detalle{% endif %}
+              {% if user.role in ['Admin', 'Operador'] %}Gestionar{% elif user.role == 'Usuario' %}Ver y comentar{% else %}Ver detalle{% endif %}
             </a>
           </td>
         </tr>

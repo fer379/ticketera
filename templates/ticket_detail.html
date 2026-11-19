@@ -44,6 +44,7 @@
   </div>
 
   <div class="col-md-5">
+    {% set comment_error = errors.get('comment') %}
     {% if user.role in ['Admin', 'Operador'] %}
     <div class="card shadow-sm">
       <div class="card-header bg-primary text-white">
@@ -89,7 +90,10 @@
 
           <div class="mb-3">
             <label for="comment" class="form-label">Comentario de seguimiento</label>
-            <textarea id="comment" name="comment" rows="3" class="form-control" placeholder="Describí las acciones realizadas o información adicional..."></textarea>
+            <textarea id="comment" name="comment" rows="3" maxlength="2000" class="form-control{% if comment_error %} is-invalid{% endif %}" placeholder="Describí las acciones realizadas o información adicional...">{{ comment_text }}</textarea>
+            {% if comment_error %}
+              <div class="invalid-feedback">{{ comment_error }}</div>
+            {% endif %}
           </div>
 
           <button type="submit" class="btn btn-success w-100">Guardar cambios</button>
@@ -104,16 +108,41 @@
         {% endif %}
       </div>
     </div>
-    {% else %}
-    {% if user.role == 'Usuario' %}
-      <div class="alert alert-secondary">
-        <strong>Vista de tu solicitud.</strong> Podés consultar el estado y el historial; la modificación queda a cargo del equipo de soporte.
+    {% elif user.role == 'Usuario' %}
+    <div class="card shadow-sm">
+      <div class="card-header bg-primary text-white">
+        <h2 class="h6 mb-0">Agregar una observación</h2>
       </div>
+      <div class="card-body">
+        <p class="small text-muted">
+          Contale al equipo de soporte si tenés novedades o si el problema continúa.
+          Tu comentario quedará en el historial y no cambiará el estado del ticket.
+        </p>
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-3">
+            <label for="comment" class="form-label">Tu comentario</label>
+            <textarea
+              id="comment"
+              name="comment"
+              rows="4"
+              maxlength="2000"
+              class="form-control{% if comment_error %} is-invalid{% endif %}"
+              placeholder="Escribí una observación para el equipo de soporte..."
+              required
+            >{{ comment_text }}</textarea>
+            {% if comment_error %}
+              <div class="invalid-feedback">{{ comment_error }}</div>
+            {% endif %}
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Enviar observación</button>
+        </form>
+      </div>
+    </div>
     {% else %}
       <div class="alert alert-secondary">
         <strong>Modo solo lectura.</strong> Podés consultar el ticket y su historial, pero no modificarlo.
       </div>
-    {% endif %}
     {% endif %}
   </div>
 </div>

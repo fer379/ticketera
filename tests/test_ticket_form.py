@@ -95,25 +95,120 @@ class TicketFormTests(unittest.TestCase):
         self.assertIn("15/01/2026 09:00:00", csv_content)
         self.assertIn("15/01/2026 10:30:00", csv_content)
 
-    def test_user_cannot_update_own_ticket(self):
-        ticket = SimpleNamespace(id=1, created_by="test.user")
-        for role in ("Usuario", "Consulta"):
-            with self.subTest(role=role):
-                with self.client.session_transaction() as session:
-                    user = session["user"].copy()
-                    user["role"] = role
-                    session["user"] = user
+    def test_user_can_comment_on_own_ticket_without_changing_ticket_fields(self):
+        ticket = SimpleNamespace(
+            id=1,
+            created_by="test.user",
+            status="Resuelto",
+            priority="Alta",
+            assigned_to="operator",
+            updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
 
-                with patch("app.db.session.get", return_value=ticket):
+        with patch("app.db.session.get", return_value=ticket):
+            with patch("app.db.session.add") as add_history:
+                with patch("app.db.session.commit") as commit:
                     response = self.client.post(
                         "/tickets/1",
                         data={
                             "csrf_token": "test-csrf-token",
-                            "comment": "Quiero agregar un comentario",
+                            "comment": "El problema continúa después de resolverlo.",
+                            "status": "Cerrado",
+                            "priority": "Baja",
+                            "assigned_to": "another.operator",
                         },
                     )
 
-                self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(ticket.status, "Resuelto")
+        self.assertEqual(ticket.priority, "Alta")
+        self.assertEqual(ticket.assigned_to, "operator")
+        self.assertGreater(ticket.updated_at, datetime(2026, 1, 1, tzinfo=timezone.utc))
+        history_entry = add_history.call_args.args[0]
+        self.assertEqual(history_entry.author, "test.user")
+        self.assertEqual(history_entry.author_role, "Usuario")
+        self.assertEqual(history_entry.action, "Observación del solicitante")
+        self.assertEqual(
+            history_entry.comment, "El problema continúa después de resolverlo."
+        )
+        commit.assert_called_once()
+
+    def test_user_cannot_comment_on_another_users_ticket(self):
+        ticket = SimpleNamespace(id=1, created_by="another.user")
+
+        with patch("app.db.session.get", return_value=ticket):
+            with patch("app.db.session.add") as add_history:
+                response = self.client.post(
+                    "/tickets/1",
+                    data={
+                        "csrf_token": "test-csrf-token",
+                        "comment": "Este comentario no debe guardarse.",
+                    },
+                )
+
+        self.assertEqual(response.status_code, 403)
+        add_history.assert_not_called()
+
+    def test_user_comment_is_required_and_length_is_validated(self):
+        ticket = SimpleNamespace(
+            id=1,
+            created_by="test.user",
+            created_by_name="Test User",
+            title="Test ticket",
+            description="Ticket description for testing.",
+            category="Hardware",
+            status="Resuelto",
+            priority="Media",
+            assigned_to="",
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            history=[],
+        )
+
+        with patch("app.db.session.get", return_value=ticket):
+            response = self.client.post(
+                "/tickets/1",
+                data={"csrf_token": "test-csrf-token", "comment": "   "},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            "Escribí una observación antes de enviarla.",
+            response.get_data(as_text=True),
+        )
+        self.assertIn("Agregar una observación", response.get_data(as_text=True))
+
+        long_comment = "x" * 2001
+        with patch("app.db.session.get", return_value=ticket):
+            with patch("app.db.session.add") as add_history:
+                response = self.client.post(
+                    "/tickets/1",
+                    data={"csrf_token": "test-csrf-token", "comment": long_comment},
+                )
+
+        body = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("no puede superar los 2000 caracteres.", body)
+        self.assertIn(long_comment, body)
+        add_history.assert_not_called()
+
+    def test_read_only_role_cannot_post_ticket_comments(self):
+        ticket = SimpleNamespace(id=1, created_by="test.user")
+        with self.client.session_transaction() as session:
+            user = session["user"].copy()
+            user["role"] = "Consulta"
+            session["user"] = user
+
+        with patch("app.db.session.get", return_value=ticket):
+            response = self.client.post(
+                "/tickets/1",
+                data={
+                    "csrf_token": "test-csrf-token",
+                    "comment": "Quiero agregar un comentario",
+                },
+            )
+
+        self.assertEqual(response.status_code, 403)
 
     def test_ticket_list_explains_each_role_view(self):
         role_titles = {
@@ -125,7 +220,18 @@ class TicketFormTests(unittest.TestCase):
 
         class FakeQuery:
             def all(self):
-                return []
+                return [
+                    SimpleNamespace(
+                        id=1,
+                        title="Test ticket",
+                        category="Hardware",
+                        status="Abierto",
+                        priority="Media",
+                        created_by="test.user",
+                        assigned_to="",
+                        updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                    )
+                ]
 
             def filter(self, *args):
                 return self
@@ -144,7 +250,10 @@ class TicketFormTests(unittest.TestCase):
                     response = self.client.get("/")
 
                 self.assertEqual(response.status_code, 200)
-                self.assertIn(title, response.get_data(as_text=True))
+                body = response.get_data(as_text=True)
+                self.assertIn(title, body)
+                if role == "Usuario":
+                    self.assertIn("Ver y comentar", body)
 
 
 if __name__ == "__main__":

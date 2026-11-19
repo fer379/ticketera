@@ -67,11 +67,13 @@ Para una prueba fuera de ese horario, ajustá temporalmente `ACCESS_START` o
 | --- | --- |
 | Admin | Consulta y gestiona todos los tickets, crea, asigna, actualiza y elimina. |
 | Operador | Consulta todos los tickets, crea y actualiza estado, prioridad, responsable e historial. |
-| Usuario | Crea tickets y consulta únicamente los que registró; no puede modificarlos. |
+| Usuario | Crea y consulta sus tickets, y agrega observaciones al historial; no cambia estado, prioridad ni responsable. |
 | Consulta | Consulta todos los tickets y exporta reportes; no puede modificarlos. |
 
 La pantalla principal muestra una descripción y acciones acordes al rol. El
-listado de Usuario se limita a sus propias solicitudes.
+listado de Usuario se limita a sus propias solicitudes. Sus observaciones se
+registran con fecha y autor en el historial, sin reabrir ni cambiar el estado;
+el equipo de soporte debe revisar el comentario y decidir qué acción tomar.
 
 ## Persistencia, fechas y seguridad
 

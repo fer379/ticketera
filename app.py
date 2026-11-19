@@ -31,6 +31,8 @@ app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
 
+MAX_COMMENT_LENGTH = 2000
+
 
 # --- Helpers de horario y seguridad ---
 
@@ -385,7 +387,7 @@ def ticket_new():
 
 @app.route("/tickets/<int:ticket_id>", methods=["GET", "POST"])
 def ticket_detail(ticket_id: int):
-    """Muestra el detalle y permite actualizaciones solo a Admin y Operador."""
+    """Muestra el detalle y procesa comentarios o actualizaciones autorizadas."""
     user = session["user"]
     ticket = db.session.get(Ticket, ticket_id)
     if not ticket:
@@ -396,17 +398,37 @@ def ticket_detail(ticket_id: int):
 
     if request.method == "POST":
         validate_csrf()
-        if user["role"] not in ("Admin", "Operador"):
+        is_staff = user["role"] in ("Admin", "Operador")
+        if not is_staff and user["role"] != "Usuario":
             abort(
                 403,
                 description="Tu rol tiene acceso de solo lectura a los tickets.",
             )
 
         comment_text = request.form.get("comment", "").strip()
+        errors = {}
+        if user["role"] == "Usuario" and not comment_text:
+            errors["comment"] = "Escribí una observación antes de enviarla."
+        elif len(comment_text) > MAX_COMMENT_LENGTH:
+            errors["comment"] = (
+                f"El comentario no puede superar los {MAX_COMMENT_LENGTH} caracteres."
+            )
+
+        if errors:
+            return render_template(
+                "ticket_detail.html",
+                user=user,
+                ticket=ticket,
+                statuses=VALID_STATUSES,
+                priorities=VALID_PRIORITIES,
+                comment_text=comment_text,
+                errors=errors,
+            )
+
         changes = []
 
         # Admin y Operador pueden gestionar estado, prioridad y responsable
-        if user["role"] in ("Admin", "Operador"):
+        if is_staff:
             new_status = request.form.get("status", ticket.status).strip()
             new_priority = request.form.get("priority", ticket.priority).strip()
             new_assigned = request.form.get("assigned_to", "").strip()[:80]
@@ -429,7 +451,13 @@ def ticket_detail(ticket_id: int):
             flash("No se detectaron cambios ni comentarios para registrar.", "warning")
             return redirect(url_for("ticket_detail", ticket_id=ticket.id))
 
-        action_summary = "; ".join(changes) if changes else "Comentario de seguimiento"
+        if changes:
+            action_summary = "; ".join(changes)
+        elif user["role"] == "Usuario":
+            action_summary = "Observación del solicitante"
+        else:
+            action_summary = "Comentario de seguimiento"
+
         entry = TicketHistory(
             ticket_id=ticket.id,
             author=user["username"],
@@ -438,9 +466,13 @@ def ticket_detail(ticket_id: int):
             comment=comment_text or None,
         )
         db.session.add(entry)
+        ticket.updated_at = datetime.now(timezone.utc)
         db.session.commit()
 
-        flash("Ticket actualizado correctamente.", "success")
+        if user["role"] == "Usuario":
+            flash("Tu observación se agregó al historial del ticket.", "success")
+        else:
+            flash("Ticket actualizado correctamente.", "success")
         return redirect(url_for("ticket_detail", ticket_id=ticket.id))
 
     return render_template(
@@ -449,6 +481,8 @@ def ticket_detail(ticket_id: int):
         ticket=ticket,
         statuses=VALID_STATUSES,
         priorities=VALID_PRIORITIES,
+        comment_text="",
+        errors={},
     )
 
 
