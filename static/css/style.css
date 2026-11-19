@@ -23,6 +23,26 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;
+  scrollbar-color: rgba(229, 184, 63, 0.5) transparent;
+  scrollbar-width: thin;
+}
+
+html::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background-color: rgba(229, 184, 63, 0.5);
+  border-radius: 999px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(193, 148, 32, 0.75);
 }
 
 body.bg-light {
@@ -174,40 +194,126 @@ body.bg-light {
   transition: background-color 150ms ease;
 }
 
-.ticket-results-card {
-  height: 25rem;
+.ticket-results-table {
+  width: 100%;
+  table-layout: fixed;
 }
 
-.ticket-results-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  scrollbar-color: rgba(229, 184, 63, 0.58) transparent;
-  scrollbar-width: thin;
+.ticket-results-table .ticket-col-id {
+  width: 4%;
 }
 
-.ticket-results-scroll::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+.ticket-results-table .ticket-col-title {
+  width: 17%;
 }
 
-.ticket-results-scroll::-webkit-scrollbar-track {
-  background: transparent;
+.ticket-results-table .ticket-col-category {
+  width: 13%;
 }
 
-.ticket-results-scroll::-webkit-scrollbar-thumb {
-  background-color: rgba(229, 184, 63, 0.58);
-  border-radius: 999px;
+.ticket-results-table .ticket-col-status {
+  width: 9%;
 }
 
-.ticket-results-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(193, 148, 32, 0.8);
+.ticket-results-table .ticket-col-priority {
+  width: 8%;
 }
 
-.ticket-results-scroll thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+.ticket-results-table .ticket-col-requester,
+.ticket-results-table .ticket-col-assignee {
+  width: 10%;
+}
+
+.ticket-results-table .ticket-col-updated {
+  width: 14%;
+}
+
+.ticket-results-table .ticket-col-actions {
+  width: 15%;
+}
+
+.ticket-results-table th,
+.ticket-results-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticket-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ticket-actions .btn {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1199.98px) {
+  .ticket-results-table .ticket-col-requester,
+  .ticket-results-table .ticket-col-assignee {
+    display: none;
+  }
+
+  .ticket-results-table .ticket-col-id {
+    width: 5%;
+  }
+
+  .ticket-results-table .ticket-col-title {
+    width: 23%;
+  }
+
+  .ticket-results-table .ticket-col-category {
+    width: 16%;
+  }
+
+  .ticket-results-table .ticket-col-status {
+    width: 11%;
+  }
+
+  .ticket-results-table .ticket-col-priority {
+    width: 9%;
+  }
+
+  .ticket-results-table .ticket-col-updated {
+    width: 17%;
+  }
+
+  .ticket-results-table .ticket-col-actions {
+    width: 19%;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .ticket-results-table .ticket-col-category,
+  .ticket-results-table .ticket-col-priority,
+  .ticket-results-table .ticket-col-updated {
+    display: none;
+  }
+
+  .ticket-results-table .ticket-col-id {
+    width: 5%;
+  }
+
+  .ticket-results-table .ticket-col-title {
+    width: 48%;
+  }
+
+  .ticket-results-table .ticket-col-status {
+    width: 17%;
+  }
+
+  .ticket-results-table .ticket-col-actions {
+    width: 30%;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .ticket-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+  }
 }
 
 .ticket-status {

@@ -377,8 +377,11 @@ class TicketFormTests(unittest.TestCase):
                 body = response.get_data(as_text=True)
                 self.assertIn(title, body)
                 self.assertIn('data-status="Abierto"', body)
-                self.assertIn('class="card shadow-sm ticket-results-card"', body)
-                self.assertIn('class="table-responsive ticket-results-scroll"', body)
+                self.assertIn(
+                    'class="table table-hover align-middle mb-0 ticket-results-table"',
+                    body,
+                )
+                self.assertIn('role="region" aria-label="Lista de tickets"', body)
                 if role == "Admin":
                     self.assertIn('id="deleteTicketModal"', body)
                     self.assertIn('data-delete-url="/tickets/1/eliminar"', body)

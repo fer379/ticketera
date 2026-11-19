@@ -1,36 +1,47 @@
-<div class="card shadow-sm ticket-results-card">
-  <div class="table-responsive ticket-results-scroll" tabindex="0" aria-label="Lista de tickets">
-    <table class="table table-hover align-middle mb-0">
+<div class="card shadow-sm">
+  <div class="table-responsive" role="region" aria-label="Lista de tickets">
+    <table class="table table-hover align-middle mb-0 ticket-results-table">
+      <colgroup>
+        <col class="ticket-col-id">
+        <col class="ticket-col-title">
+        <col class="ticket-col-category">
+        <col class="ticket-col-status">
+        <col class="ticket-col-priority">
+        <col class="ticket-col-requester">
+        <col class="ticket-col-assignee">
+        <col class="ticket-col-updated">
+        <col class="ticket-col-actions">
+      </colgroup>
       <thead class="table-dark">
         <tr>
-          <th>#</th>
-          <th>Título</th>
-          <th>Categoría</th>
-          <th>Estado</th>
-          <th>Prioridad</th>
-          <th>Solicitante</th>
-          <th>Responsable</th>
-          <th>Actualizado (GMT-3)</th>
-          <th>Acciones</th>
+          <th class="ticket-col-id">#</th>
+          <th class="ticket-col-title">Título</th>
+          <th class="ticket-col-category">Categoría</th>
+          <th class="ticket-col-status">Estado</th>
+          <th class="ticket-col-priority">Prioridad</th>
+          <th class="ticket-col-requester">Solicitante</th>
+          <th class="ticket-col-assignee">Responsable</th>
+          <th class="ticket-col-updated">Actualizado (GMT-3)</th>
+          <th class="ticket-col-actions">Acciones</th>
         </tr>
       </thead>
       <tbody>
         {% for t in tickets %}
         <tr data-ticket-row-id="{{ t.id }}">
-          <td>{{ t.id }}</td>
-          <td><strong>{{ t.title }}</strong></td>
-          <td>{{ t.category }}</td>
-          <td><span class="badge ticket-status" data-status="{{ t.status }}">{{ t.status }}</span></td>
-          <td>
+          <td class="ticket-col-id">{{ t.id }}</td>
+          <td class="ticket-col-title"><strong title="{{ t.title }}">{{ t.title }}</strong></td>
+          <td class="ticket-col-category" title="{{ t.category }}">{{ t.category }}</td>
+          <td class="ticket-col-status"><span class="badge ticket-status" data-status="{{ t.status }}">{{ t.status }}</span></td>
+          <td class="ticket-col-priority">
             <span class="badge {% if t.priority == 'Crítica' %}bg-danger{% elif t.priority == 'Alta' %}bg-warning text-dark{% else %}bg-primary{% endif %}">
               {{ t.priority }}
             </span>
           </td>
-          <td>{{ t.created_by }}</td>
-          <td>{{ t.assigned_to or 'Sin asignar' }}</td>
-          <td class="small">{{ t.updated_at|argentina_datetime }}</td>
-          <td>
-            <div class="d-flex flex-wrap gap-2">
+          <td class="ticket-col-requester" title="{{ t.created_by }}">{{ t.created_by }}</td>
+          <td class="ticket-col-assignee" title="{{ t.assigned_to or 'Sin asignar' }}">{{ t.assigned_to or 'Sin asignar' }}</td>
+          <td class="ticket-col-updated small">{{ t.updated_at|argentina_datetime }}</td>
+          <td class="ticket-col-actions">
+            <div class="ticket-actions">
               <a href="{{ url_for('ticket_detail', ticket_id=t.id) }}" class="btn btn-sm btn-outline-primary">
                 {% if user.role in ['Admin', 'Operador'] %}Gestionar{% elif user.role == 'Usuario' %}Ver y comentar{% else %}Ver detalle{% endif %}
               </a>
