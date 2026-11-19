@@ -31,6 +31,23 @@ class Config:
     AD_DOMAIN = os.getenv("AD_DOMAIN", "IFTS.local")
     AD_BASE_DN = os.getenv("AD_BASE_DN", "DC=IFTS,DC=local")
     AD_USE_SSL = os.getenv("AD_USE_SSL", "false").lower() == "true"
+    AD_SESSION_READER_USERNAME = os.getenv("AD_SESSION_READER_USERNAME", "").strip()
+    AD_SESSION_READER_PASSWORD = os.getenv("AD_SESSION_READER_PASSWORD", "")
+    SESSION_PASSWORD_CHECK_INTERVAL_SECONDS = int(
+        os.getenv("SESSION_PASSWORD_CHECK_INTERVAL_SECONDS", "15")
+    )
+    if bool(AD_SESSION_READER_USERNAME) != bool(AD_SESSION_READER_PASSWORD):
+        raise RuntimeError(
+            "Configurá AD_SESSION_READER_USERNAME y "
+            "AD_SESSION_READER_PASSWORD juntos, o dejá ambos vacíos."
+        )
+    if not 5 <= SESSION_PASSWORD_CHECK_INTERVAL_SECONDS <= 300:
+        raise RuntimeError(
+            "SESSION_PASSWORD_CHECK_INTERVAL_SECONDS debe estar entre 5 y 300."
+        )
+    SESSION_PASSWORD_CHECK_ENABLED = bool(
+        AD_SESSION_READER_USERNAME and AD_SESSION_READER_PASSWORD
+    )
 
     # Mapeo por Grupos de AD (memberOf) O por Unidades Organizativas (distinguishedName)
     ROLE_DN_MAP = {

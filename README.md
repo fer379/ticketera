@@ -66,6 +66,46 @@ El acceso se restringe por defecto a las 08:00–18:00, según `TIMEZONE`.
 Para una prueba fuera de ese horario, ajustá temporalmente `ACCESS_START` o
 `ACCESS_END` en `.env` y restauralos después.
 
+### Cierre de sesiones al cambiar la contraseña de AD
+
+La sesión web no contiene la contraseña del usuario. Para detectar cambios
+mientras la aplicación está abierta, Ticketera guarda el valor de `pwdLastSet`
+al iniciar sesión y lo compara cada 15 segundos con Active Directory. Si cambia,
+cierra la sesión y vuelve al login; también la cierra si no puede consultar AD.
+
+Para habilitarlo, creá **una sola cuenta técnica normal** en AD, por ejemplo
+`svc_ticketera_ldap`. No es una cuenta para las personas que usan la ticketera:
+no necesita pertenecer a Domain Admins ni a grupos de administración. Solo debe
+poder leer `pwdLastSet` de los usuarios de la Ticketera. En ADUC, esto se
+configura en los permisos de lectura de la OU que contiene a esos usuarios; la
+pestaña **Remote Control** es de Escritorio remoto y no interviene. No compartas
+la contraseña de esta cuenta ni la guardes en el repositorio.
+
+En `.env`, cargá esa única cuenta y su contraseña:
+
+```dotenv
+AD_SESSION_READER_USERNAME=IFTS\svc_ticketera_ldap
+AD_SESSION_READER_PASSWORD=una-clave-larga-de-la-cuenta-tecnica
+SESSION_PASSWORD_CHECK_INTERVAL_SECONDS=15
+```
+
+El formato `DOMINIO\usuario` usa autenticación NTLM para la cuenta técnica.
+Si el servidor tiene LDAPS configurado y su certificado es confiable, también
+podés usar su UPN (`svc_ticketera_ldap@IFTS.local`) con `AD_SERVER=ldaps://...`
+y `AD_USE_SSL=true`. Reiniciá la aplicación una vez después de configurar `.env`;
+no hace falta reiniciar el navegador. El control se ejecuta en cada pestaña
+abierta y vuelve a comprobar la sesión al regresar a una pestaña en segundo
+plano. El intervalo permitido es de 5 a 300 segundos.
+
+No uses un UPN con `SIMPLE` en LDAP sin TLS: la aplicación lo rechaza para la
+cuenta técnica porque expondría su contraseña en la red. LDAPS es la opción
+recomendada también para la autenticación de los usuarios de la Ticketera.
+
+Si las dos variables de la cuenta técnica están vacías, la aplicación sigue
+permitiendo el login normal, pero avisa que el cierre automático no está activo.
+Si solo se completa una, la aplicación informa el error de configuración al
+iniciar.
+
 ## Funcionalidad y permisos
 
 | Rol de AD | Permisos en la aplicación |

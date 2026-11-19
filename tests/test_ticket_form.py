@@ -18,8 +18,12 @@ class TicketFormTests(unittest.TestCase):
     def setUp(self):
         self.original_access_start = app.config["ACCESS_START"]
         self.original_access_end = app.config["ACCESS_END"]
+        self.original_password_check_enabled = app.config[
+            "SESSION_PASSWORD_CHECK_ENABLED"
+        ]
         app.config["ACCESS_START"] = time.min
         app.config["ACCESS_END"] = time.max
+        app.config["SESSION_PASSWORD_CHECK_ENABLED"] = False
 
         self.client = app.test_client()
         with self.client.session_transaction() as session:
@@ -33,6 +37,9 @@ class TicketFormTests(unittest.TestCase):
     def tearDown(self):
         app.config["ACCESS_START"] = self.original_access_start
         app.config["ACCESS_END"] = self.original_access_end
+        app.config["SESSION_PASSWORD_CHECK_ENABLED"] = (
+            self.original_password_check_enabled
+        )
 
     def test_login_template_and_shared_static_assets_load(self):
         response = self.client.get("/login")
@@ -40,6 +47,10 @@ class TicketFormTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.get_data(as_text=True)
         self.assertIn('placeholder="NombreDeUsuario"', body)
+        self.assertIn(
+            "El cierre automático de sesión tras un cambio de contraseña",
+            body,
+        )
         self.assertIn("/static/css/style.css", body)
         self.assertIn("/static/js/script.js", body)
 
@@ -55,6 +66,81 @@ class TicketFormTests(unittest.TestCase):
         finally:
             css_response.close()
             js_response.close()
+
+    def test_login_stores_password_version_for_the_session_monitor(self):
+        app.config["SESSION_PASSWORD_CHECK_ENABLED"] = True
+        with patch(
+            "app.authenticate_ad",
+            return_value={
+                "username": "test.user",
+                "display_name": "Test User",
+                "role": "Usuario",
+            },
+        ), patch("app.get_password_last_set", return_value="version-1"):
+            response = self.client.post(
+                "/login",
+                data={
+                    "csrf_token": "test-csrf-token",
+                    "username": "test.user",
+                    "password": "not-a-real-password",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        with self.client.session_transaction() as session:
+            self.assertEqual(session["ad_pwd_last_set"], "version-1")
+
+    def test_session_validation_keeps_session_when_password_is_unchanged(self):
+        app.config["SESSION_PASSWORD_CHECK_ENABLED"] = True
+        with self.client.session_transaction() as session:
+            session["ad_pwd_last_set"] = "version-1"
+
+        with patch("app.get_password_last_set", return_value="version-1"):
+            response = self.client.get("/sesion/validar")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {"authenticated": True})
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+        with self.client.session_transaction() as session:
+            self.assertEqual(session["user"]["username"], "test.user")
+
+    def test_authenticated_pages_enable_the_session_monitor_when_configured(self):
+        app.config["SESSION_PASSWORD_CHECK_ENABLED"] = True
+        response = self.client.get("/tickets/nuevo")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.get_data(as_text=True)
+        self.assertIn('data-session-check-url="/sesion/validar"', body)
+        self.assertIn('data-session-check-interval="15"', body)
+
+    def test_session_validation_closes_session_when_password_changes(self):
+        app.config["SESSION_PASSWORD_CHECK_ENABLED"] = True
+        with self.client.session_transaction() as session:
+            session["ad_pwd_last_set"] = "version-1"
+
+        with patch("app.get_password_last_set", return_value="version-2"):
+            response = self.client.get("/sesion/validar")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.get_json()["redirect"], "/login")
+        with self.client.session_transaction() as session:
+            self.assertNotIn("user", session)
+            self.assertIn("_flashes", session)
+
+    def test_session_validation_fails_closed_when_ad_cannot_be_checked(self):
+        app.config["SESSION_PASSWORD_CHECK_ENABLED"] = True
+        with self.client.session_transaction() as session:
+            session["ad_pwd_last_set"] = "version-1"
+
+        with patch(
+            "app.get_password_last_set",
+            side_effect=ADConnectionError("directory unavailable"),
+        ):
+            response = self.client.get("/sesion/validar")
+
+        self.assertEqual(response.status_code, 401)
+        with self.client.session_transaction() as session:
+            self.assertNotIn("user", session)
 
     def test_login_shows_ad_connectivity_error_instead_of_internal_server_error(self):
         with patch(

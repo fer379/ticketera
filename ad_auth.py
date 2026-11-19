@@ -63,6 +63,24 @@ def _resolve_role(
     return next(iter(ou_roles)) if len(ou_roles) == 1 else None
 
 
+def _create_server(config: Mapping[str, Any]) -> Server:
+    """Construye el servidor LDAP a partir de la URL y el modo SSL configurados."""
+    server_url = config["AD_SERVER"].strip()
+    if "://" not in server_url:
+        server_url = f"ldap://{server_url}"
+    parsed_url = urlsplit(server_url)
+    if parsed_url.scheme not in ("ldap", "ldaps") or not parsed_url.hostname:
+        raise ValueError("AD_SERVER debe ser un host o una URL ldap:// o ldaps://.")
+
+    use_ssl = config["AD_USE_SSL"] or parsed_url.scheme == "ldaps"
+    return Server(
+        parsed_url.hostname,
+        port=parsed_url.port or (636 if use_ssl else 389),
+        use_ssl=use_ssl,
+        get_info=ALL,
+    )
+
+
 def authenticate_ad(
     username: str, password: str, config: Mapping[str, Any]
 ) -> dict[str, str] | None:
@@ -96,22 +114,8 @@ def authenticate_ad(
             f"(sAMAccountName={escape_filter_chars(search_username)})"
         )
 
-    server_url = config["AD_SERVER"].strip()
-    if "://" not in server_url:
-        server_url = f"ldap://{server_url}"
-    parsed_url = urlsplit(server_url)
-    if parsed_url.scheme not in ("ldap", "ldaps") or not parsed_url.hostname:
-        raise ValueError("AD_SERVER debe ser un host o una URL ldap:// o ldaps://.")
-
-    use_ssl = config["AD_USE_SSL"] or parsed_url.scheme == "ldaps"
-    server = Server(
-        parsed_url.hostname,
-        port=parsed_url.port or (636 if use_ssl else 389),
-        use_ssl=use_ssl,
-        get_info=ALL,
-    )
     connection = Connection(
-        server,
+        _create_server(config),
         user=bind_user,
         password=password,
         authentication=authentication,
@@ -177,4 +181,81 @@ def authenticate_ad(
             ) from error
     finally:
         if connection.bound:
+            connection.unbind()
+
+
+def get_password_last_set(username: str, config: Mapping[str, Any]) -> str:
+    """Consulta pwdLastSet usando la cuenta técnica de lectura de la aplicación."""
+    reader_username = config["AD_SESSION_READER_USERNAME"].strip()
+    reader_password = config["AD_SESSION_READER_PASSWORD"]
+    if not reader_username or not reader_password:
+        raise RuntimeError("La cuenta de lectura de sesión no está configurada.")
+
+    authentication = NTLM if "\\" in reader_username else SIMPLE
+    server_url = config["AD_SERVER"].strip()
+    if "://" not in server_url:
+        server_url = f"ldap://{server_url}"
+    if (
+        authentication == SIMPLE
+        and not config["AD_USE_SSL"]
+        and urlsplit(server_url).scheme != "ldaps"
+    ):
+        raise ValueError(
+            "La cuenta técnica debe usar NTLM en LDAP sin TLS o LDAPS para "
+            "evitar enviar su contraseña sin cifrar."
+        )
+
+    search_filter = (
+        f"(sAMAccountName={escape_filter_chars(username.strip())})"
+    )
+    connection = None
+
+    try:
+        try:
+            connection = Connection(
+                _create_server(config),
+                user=reader_username,
+                password=reader_password,
+                authentication=authentication,
+                auto_bind=False,
+                raise_exceptions=False,
+            )
+            if not connection.bind():
+                message = (
+                    connection.result.get("message") or "respuesta LDAP sin detalle"
+                )
+                raise RuntimeError(
+                    f"No se pudo autenticar la cuenta técnica de lectura: {message}"
+                )
+
+            search_ok = connection.search(
+                search_base=config["AD_BASE_DN"],
+                search_filter=search_filter,
+                search_scope=SUBTREE,
+                attributes=["pwdLastSet"],
+            )
+            if not search_ok and connection.result.get("result") != 0:
+                message = (
+                    connection.result.get("message") or "respuesta LDAP sin detalle"
+                )
+                raise RuntimeError(
+                    f"No se pudo consultar pwdLastSet en Active Directory: {message}"
+                )
+            if len(connection.entries) != 1:
+                raise ADUserNotFoundError
+
+            pwd_last_set = _attribute_values(
+                connection.entries[0].entry_attributes_as_dict, "pwdLastSet"
+            )
+            if not pwd_last_set:
+                raise RuntimeError(
+                    "Active Directory no devolvió el atributo pwdLastSet."
+                )
+            return pwd_last_set[0]
+        except (LDAPException, RuntimeError) as error:
+            raise ADConnectionError(
+                "No se pudo consultar la vigencia de la sesión en Active Directory."
+            ) from error
+    finally:
+        if connection is not None and connection.bound:
             connection.unbind()

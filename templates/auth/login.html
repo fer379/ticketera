@@ -14,6 +14,13 @@
         </div>
 
         <div class="card-body p-4 p-md-5">
+          {% if not config.get('SESSION_PASSWORD_CHECK_ENABLED') %}
+            <div class="alert alert-warning" role="status">
+              El cierre automático de sesión tras un cambio de contraseña no está
+              configurado. El administrador debe completar la cuenta técnica de
+              lectura en el archivo <code>.env</code>.
+            </div>
+          {% endif %}
           <div class="login-info mb-4">
             <div class="d-flex justify-content-between align-items-center gap-3">
               <span class="small text-secondary">Dominio</span>

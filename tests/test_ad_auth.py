@@ -13,6 +13,7 @@ from ad_auth import (
     ADRoleNotAssignedError,
     _resolve_role,
     authenticate_ad,
+    get_password_last_set,
 )
 
 with patch.dict(os.environ, {"SECRET_KEY": "test-secret"}):
@@ -161,6 +162,71 @@ class AdAuthTests(unittest.TestCase):
         )
         self.assertEqual(netbios_user["username"], "alice")
         self.assertEqual(upn_user["username"], "alice")
+
+    def test_reads_pwd_last_set_with_the_configured_reader_account(self):
+        entry = SimpleNamespace(
+            entry_attributes_as_dict={"pwdLastSet": 133700000000000000}
+        )
+
+        class FakeConnection:
+            result = {"result": 0}
+            entries = [entry]
+            bound = False
+            last_instance = None
+
+            def __init__(self, server, **kwargs):
+                self.kwargs = kwargs
+                type(self).last_instance = self
+
+            def bind(self):
+                self.bound = True
+                return True
+
+            def search(self, **kwargs):
+                self.search_kwargs = kwargs
+                return True
+
+            def unbind(self):
+                self.bound = False
+                return True
+
+        config = {
+            "AD_DOMAIN": "IFTS.local",
+            "AD_SERVER": "ldap://192.168.56.101",
+            "AD_USE_SSL": False,
+            "AD_BASE_DN": "DC=IFTS,DC=local",
+            "AD_SESSION_READER_USERNAME": r"IFTS\svc_ticketera_ldap",
+            "AD_SESSION_READER_PASSWORD": "reader-test-password",
+        }
+
+        with patch("ad_auth.Server"), patch("ad_auth.Connection", FakeConnection):
+            pwd_last_set = get_password_last_set("alice", config)
+
+        self.assertEqual(pwd_last_set, "133700000000000000")
+        self.assertEqual(FakeConnection.last_instance.kwargs["authentication"], NTLM)
+        self.assertEqual(
+            FakeConnection.last_instance.search_kwargs["attributes"], ["pwdLastSet"]
+        )
+        self.assertEqual(
+            FakeConnection.last_instance.search_kwargs["search_filter"],
+            "(sAMAccountName=alice)",
+        )
+
+    def test_refuses_to_send_simple_reader_credentials_over_plain_ldap(self):
+        config = {
+            "AD_DOMAIN": "IFTS.local",
+            "AD_SERVER": "ldap://192.168.56.101",
+            "AD_USE_SSL": False,
+            "AD_BASE_DN": "DC=IFTS,DC=local",
+            "AD_SESSION_READER_USERNAME": "svc_ticketera_ldap@IFTS.local",
+            "AD_SESSION_READER_PASSWORD": "reader-test-password",
+        }
+
+        with patch("ad_auth.Server"), patch("ad_auth.Connection") as connection:
+            with self.assertRaisesRegex(ValueError, "sin cifrar"):
+                get_password_last_set("alice", config)
+
+        connection.assert_not_called()
 
     def test_invalid_credentials_return_none(self):
         class FakeConnection:

@@ -192,3 +192,55 @@ if (
     confirmDeleteButton.disabled = true;
   });
 }
+
+const sessionCheckUrl = document.body.dataset.sessionCheckUrl;
+const sessionCheckFeedback = document.getElementById("session-check-feedback");
+
+if (sessionCheckUrl && sessionCheckFeedback) {
+  const sessionCheckInterval =
+    Number(document.body.dataset.sessionCheckInterval) * 1000 || 15000;
+  const loginUrl = document.body.dataset.loginUrl || "/login";
+  let sessionCheckInProgress = false;
+  let sessionRedirecting = false;
+
+  async function checkSessionValidity() {
+    if (sessionCheckInProgress || sessionRedirecting) {
+      return;
+    }
+
+    sessionCheckInProgress = true;
+    try {
+      const response = await fetch(sessionCheckUrl, {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+
+      if (response.status === 401) {
+        const result = await response.json();
+        sessionRedirecting = true;
+        window.location.replace(result.redirect || loginUrl);
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Session validation failed with status ${response.status}`);
+      }
+
+      sessionCheckFeedback.classList.add("d-none");
+    } catch (error) {
+      console.error("No se pudo validar la sesión contra Active Directory.", error);
+      sessionCheckFeedback.classList.remove("d-none");
+    } finally {
+      sessionCheckInProgress = false;
+    }
+  }
+
+  checkSessionValidity();
+  window.setInterval(checkSessionValidity, sessionCheckInterval);
+  window.addEventListener("focus", checkSessionValidity);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      checkSessionValidity();
+    }
+  });
+}

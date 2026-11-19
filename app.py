@@ -11,6 +11,7 @@ from flask import (
     Flask,
     abort,
     flash,
+    jsonify,
     make_response,
     redirect,
     render_template,
@@ -24,6 +25,7 @@ from ad_auth import (
     ADUserNotFoundError,
     ADRoleNotAssignedError,
     authenticate_ad,
+    get_password_last_set,
 )
 from config import Config
 from models import Ticket, TicketHistory, VALID_PRIORITIES, VALID_STATUSES, db
@@ -33,6 +35,12 @@ app.config.from_object(Config)
 db.init_app(app)
 
 MAX_COMMENT_LENGTH = 2000
+
+if not app.config["SESSION_PASSWORD_CHECK_ENABLED"]:
+    app.logger.warning(
+        "La detección automática de cambios de contraseña está desactivada. "
+        "Configurá AD_SESSION_READER_USERNAME y AD_SESSION_READER_PASSWORD."
+    )
 
 
 # --- Helpers de horario y seguridad ---
@@ -88,8 +96,13 @@ app.jinja_env.globals["csrf_token"] = get_csrf_token
 @app.before_request
 def enforce_schedule_and_session():
     """Exige horario habilitado y una sesión iniciada para las rutas privadas."""
-    # Permite archivos estáticos y la pantalla de login
-    if request.endpoint in ("static", "login", "schedule_blocked"):
+    # La ruta de verificación devuelve su propio estado JSON de sesión/horario.
+    if request.endpoint in (
+        "static",
+        "login",
+        "schedule_blocked",
+        "session_validate",
+    ):
         return
 
     if not is_within_access_hours():
@@ -241,8 +254,39 @@ def login():
                 end_str=end_str,
             )
 
+        pwd_last_set = None
+        if app.config["SESSION_PASSWORD_CHECK_ENABLED"]:
+            try:
+                pwd_last_set = get_password_last_set(
+                    user_info["username"], app.config
+                )
+            except (ADConnectionError, ADUserNotFoundError, ValueError) as error:
+                app.logger.error(
+                    "No se pudo consultar pwdLastSet para iniciar la sesión: %s",
+                    error.__cause__ or error,
+                )
+                flash(
+                    "No se pudo comprobar la vigencia de la contraseña en Active "
+                    "Directory. Verificá la cuenta técnica de lectura y volvé a "
+                    "intentarlo.",
+                    "danger",
+                )
+                return (
+                    render_template(
+                        "auth/login.html",
+                        blocked=False,
+                        domain=app.config["AD_DOMAIN"],
+                        now_str=now_str,
+                        start_str=start_str,
+                        end_str=end_str,
+                    ),
+                    503,
+                )
+
         session.clear()
         session["user"] = user_info
+        if pwd_last_set is not None:
+            session["ad_pwd_last_set"] = pwd_last_set
         get_csrf_token()
         flash(
             f"Bienvenido/a, {user_info['display_name']} (Rol: {user_info['role']}).",
@@ -267,6 +311,95 @@ def logout():
     session.clear()
     flash("Sesión cerrada correctamente.", "info")
     return redirect(url_for("login"))
+
+
+@app.route("/sesion/validar", methods=["GET"])
+def session_validate():
+    """Invalida sesiones al cambiar pwdLastSet o si AD no puede validarlo."""
+    user = session.get("user")
+    if not user:
+        response = make_response(
+            jsonify({"authenticated": False, "redirect": url_for("login")}), 401
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    if not is_within_access_hours():
+        session.clear()
+        response = make_response(
+            jsonify(
+                {
+                    "authenticated": False,
+                    "redirect": url_for("schedule_blocked"),
+                }
+            ),
+            401,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    if not app.config["SESSION_PASSWORD_CHECK_ENABLED"]:
+        response = make_response(
+            jsonify({"authenticated": False, "monitoring": False}), 503
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    expected_pwd_last_set = session.get("ad_pwd_last_set")
+    if not expected_pwd_last_set:
+        app.logger.error(
+            "La sesión de %s no tiene una marca pwdLastSet para validar.",
+            user.get("username", "desconocido"),
+        )
+        session.clear()
+        flash(
+            "No se pudo comprobar la vigencia de tu sesión. Ingresá nuevamente.",
+            "warning",
+        )
+        response = make_response(
+            jsonify({"authenticated": False, "redirect": url_for("login")}), 401
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    try:
+        current_pwd_last_set = get_password_last_set(
+            user["username"], app.config
+        )
+    except (ADConnectionError, ADUserNotFoundError, ValueError) as error:
+        app.logger.error(
+            "No se pudo validar la sesión de %s contra Active Directory: %s",
+            user.get("username", "desconocido"),
+            error.__cause__ or error,
+        )
+        session.clear()
+        flash(
+            "No se pudo validar tu sesión con Active Directory. Ingresá "
+            "nuevamente cuando el servicio esté disponible.",
+            "warning",
+        )
+        response = make_response(
+            jsonify({"authenticated": False, "redirect": url_for("login")}), 401
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    if current_pwd_last_set != expected_pwd_last_set:
+        session.clear()
+        flash(
+            "Tu contraseña de Active Directory cambió. Por seguridad, cerramos "
+            "tu sesión; ingresá nuevamente con la nueva contraseña.",
+            "info",
+        )
+        response = make_response(
+            jsonify({"authenticated": False, "redirect": url_for("login")}), 401
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    response = make_response(jsonify({"authenticated": True}), 200)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 # --- Rutas de Tickets y Reportes ---
